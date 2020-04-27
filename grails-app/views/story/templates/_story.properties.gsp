@@ -25,9 +25,14 @@
       ng-class="{'form-editable': formEditable(), 'form-editing': formHolder.editing }"
       show-validation
       novalidate>
-    <div class="panel-body">
-        <div class="clearfix no-padding">
-            <entry:point id="story-properties-before-properties"/>
+    <div class="card-body">
+        <div class="drop-zone d-flex align-items-center justify-content-center">
+            <div>
+                <asset:image src="application/upload.svg" width="70" height="70"/>
+                <span class="drop-text">${message(code: 'todo.is.ui.drop.here')}</span>
+            </div>
+        </div>
+        <div class="row">
             <div class="form-2-tiers">
                 <label for="name">${message(code: 'is.story.name')}</label>
                 <input required
@@ -35,9 +40,10 @@
                        ng-focus="editForm(true)"
                        ng-disabled="!formEditable()"
                        name="name"
+                       autocomplete="off"
                        ng-model="editableStory.name"
                        type="text"
-                       class="form-control important">
+                       class="form-control">
             </div>
             <div class="form-1-tier">
                 <label for="type">${message(code: 'is.story.type')}</label>
@@ -46,18 +52,19 @@
                            ng-disabled="!formEditable() || !authorizedStory('updateType', editableStory)"
                            name="type"
                            ng-model="editableStory.type">
-                    <ui-select-match><i class="fa fa-{{ $select.selected | storyTypeIcon }}"></i> {{ $select.selected | i18n:'StoryTypes' }}</ui-select-match>
-                    <ui-select-choices repeat="storyType in storyTypes | newStoryTypes"><i class="fa fa-{{ ::storyType | storyTypeIcon }}"></i> {{ ::storyType | i18n:'StoryTypes' }}</ui-select-choices>
+                    <ui-select-match><i class="{{ $select.selected | storyTypeIcon }}"></i> {{ $select.selected | i18n:'StoryTypes' }}</ui-select-match>
+                    <ui-select-choices repeat="storyType in storyTypes | newStoryTypes"><i class="{{ ::storyType | storyTypeIcon }}"></i> {{ ::storyType | i18n:'StoryTypes' }}</ui-select-choices>
                 </ui-select>
             </div>
         </div>
         <div class="form-group">
-            <label for="description">
-                <span class="text-muted small pull-right"
-                      ng-click="showProjectEditModal('actors')">
-                    <i class="fa fa-question-circle"></i> ${message(code: 'is.actor.help.description')}
-                </span>
+            <label for="description" class="d-flex align-items-center justify-content-between">
                 <div>${message(code: 'is.backlogelement.description')}</div>
+                <div ng-if="formHolder.editing"
+                     class="small"
+                     ng-click="showProjectEditModal('actors')">
+                    <i class="fa fa-question-circle"></i> ${message(code: 'is.actor.help.description')}
+                </div>
             </label>
             <textarea class="form-control"
                       ng-maxlength="3000"
@@ -68,7 +75,7 @@
                       at="atOptions"
                       autofocus
                       placeholder="${message(code: 'is.ui.backlogelement.nodescription')}"></textarea>
-            <div class="atwho-preview form-control-static important"
+            <div class="atwho-preview form-control"
                  ng-show="!showDescriptionTextarea"
                  ng-click="clickDescriptionPreview($event)"
                  ng-focus="focusDescriptionPreview($event)"
@@ -78,12 +85,11 @@
                  tabindex="0"
                  ng-bind-html="editableStory.description ? (editableStory.description | lineReturns | actorTag: actors) : '${message(code: 'is.ui.backlogelement.nodescription')}'"></div>
         </div>
-        <div class="clearfix no-padding">
+        <div class="row">
             <div class="form-half">
                 <label for="feature">${message(code: 'is.feature')}</label>
                 <div ng-class="{'input-group': editableStory.feature.id && !isModal}">
-                    <ui-select input-group-fix-width="38"
-                               ng-click="editForm(true)"
+                    <ui-select ng-click="editForm(true)"
                                uis-open-close="isOpen && listFeatures()"
                                ng-change="editForm(true)"
                                ng-disabled="!formEditable()"
@@ -96,13 +102,13 @@
                                          placeholder="${message(code: 'is.ui.story.nofeature')}">
                             <i class="fa fa-puzzle-piece" ng-style="{color: $select.selected.color}"></i> {{ $select.selected.name }}
                         </ui-select-match>
-                        <ui-select-choices repeat="feature in features | orFilter: { name: $select.search, uid: $select.search }">
-                            <i class="fa fa-puzzle-piece" ng-style="{color: feature.color}"></i> <span ng-bind-html="feature.name | highlight: $select.search"></span>
+                        <ui-select-choices ui-disable-choice="feature.state === featureStatesByName.DONE" repeat="feature in features | orFilter: { name: $select.search, uid: $select.search }">
+                            <i class="fa fa-puzzle-piece" ng-style="{color: feature.color}"></i> <span ng-bind-html="feature | featureNameState | highlight: $select.search"></span>
                         </ui-select-choices>
                     </ui-select>
-                    <span class="input-group-btn" ng-if="editableStory.feature.id && !isModal">
+                    <span class="input-group-append" ng-if="editableStory.feature.id && !isModal">
                         <a href="{{ storyFeatureUrl(editableStory) }}"
-                           class="btn btn-default">
+                           class="btn btn-secondary btn-sm">
                             <i class="fa fa-info-circle"></i>
                         </a>
                     </span>
@@ -111,11 +117,9 @@
             <div class="form-half">
                 <label for="dependsOn">
                     ${message(code: 'is.story.dependsOn')}
-                    <span class="text-muted small pull-right" ng-if="project.portfolio.id"><i class="fa fa-question-circle"></i> ${message(code: 'is.ui.story.dependsOn.help')}</span>
                 </label>
                 <div ng-class="{'input-group':editableStory.dependsOn.id}">
-                    <ui-select input-group-fix-width="38"
-                               class="form-control"
+                    <ui-select class="form-control"
                                ng-click="editForm(true); searchDependenceEntries(editableStory, $select)"
                                ng-change="editForm(true)"
                                ng-disabled="!formEditable()"
@@ -130,19 +134,19 @@
                         <ui-select-choices refresh="searchDependenceEntries(editableStory, $select)"
                                            refresh-delay="100"
                                            repeat="dependenceEntry in dependenceEntries">
-                            <i class="fa fa-sticky-note" ng-style="{color: dependenceEntry.feature ? dependenceEntry.feature.color : '#f9f157'}"></i>
+                            <i class="fa fa-sticky-note" ng-style="{color: (dependenceEntry | storyColor)}"></i>
                             <span ng-bind-html="dependenceEntry | storyLabel : false : !hasSameProject(editableStory, dependenceEntry) | highlight: $select.search"></span>
                         </ui-select-choices>
                     </ui-select>
-                    <span class="input-group-btn" ng-if="editableStory.dependsOn.id">
+                    <span class="input-group-append" ng-if="editableStory.dependsOn.id">
                         <a ng-if="hasSameProject(editableStory, editableStory.dependsOn)"
                            ui-sref=".({storyId: editableStory.dependsOn.id})"
-                           class="btn btn-default">
+                           class="btn btn-secondary btn-sm">
                             <i class="fa fa-info-circle"></i>
                         </a>
                         <a ng-if="!hasSameProject(editableStory, editableStory.dependsOn)"
-                           ng-href="{{ editableStory.dependsOn.uid | permalink: 'story': editableStory.dependsOn.project.pkey }}"
-                           class="btn btn-default">
+                           ng-href="{{:: editableStory.dependsOn.permalink }}"
+                           class="btn btn-secondary btn-sm">
                             <i class="fa fa-info-circle"></i>
                         </a>
                     </span>
@@ -151,23 +155,25 @@
         </div>
         <div class="form-group" ng-if="editableStory.dependences.length">
             <label>${message(code: 'is.story.dependences')}</label>
-            <div class="form-control-static">
+            <div class="form-control-plaintext">
                 <span ng-repeat="dependence in editableStory.dependences track by dependence.id">
                     <a ng-if="hasSameProject(editableStory, dependence)"
+                       class="link"
                        ui-sref=".({storyId: dependence.id})"
                        title="{{ dependence | storyLabel }}">
-                        {{ dependence.name | ellipsis: 30 }}</a><span ng-if="!$last">,</span>
-                    <a ng-if="!hasSameProject(editableStory, dependence)"
-                       ng-href="{{ dependence.uid | permalink: 'story': dependence.project.pkey }}"
-                       title="{{ dependence | storyLabel : false : true }}">
-                        {{ (dependence.name + ' (' +  dependence.project.name + ')') | ellipsis: 30 }}</a><span ng-if="!$last">,</span>
+                        {{ dependence.name | ellipsis: 30 }}</a><a ng-if="!hasSameProject(editableStory, dependence)"
+                                                                   class="link"
+                                                                   ng-href="{{:: dependence.permalink }}"
+                                                                   title="{{ dependence | storyLabel : false : true }}">
+                    {{ (dependence.name + ' (' +  dependence.project.name + ')') | ellipsis: 30 }}</a><span ng-if="!$last">,</span>
                 </span>
             </div>
         </div>
-        <div class="form-group" ng-if="showTags">
-            <label for="tags">
+        <div class="form-group"
+             ng-if="showTags">
+            <label for="tags" class="d-flex align-items-center justify-content-between">
+                <div>${message(code: 'is.backlogelement.tags')}</div>
                 <entry:point id="item-properties-inside-tag"/>
-                ${message(code: 'is.backlogelement.tags')}
             </label>
             <ui-select ng-click="retrieveTags(); editForm(true)"
                        ng-disabled="!formEditable()"
@@ -185,9 +191,9 @@
             </ui-select>
         </div>
         <entry:point id="story-properties-after-tag"/>
-        <div class="clearfix no-padding">
+        <div class="row">
             <div class="form-1-quarter" ng-show="editableStory.state > storyStatesByName.SUGGESTED">
-                <label for="effort"><i class="fa fa-dollar"></i> ${message(code: 'is.story.effort')}</label>
+                <label for="effort">${message(code: 'is.story.effort')}</label>
                 <div class="input-group">
                     <ui-select ng-if="!isEffortCustom()"
                                class="form-control"
@@ -209,12 +215,12 @@
                            name="effort"
                            min="0"
                            ng-model="editableStory.effort"/>
-                    <span class="input-group-btn">
-                        <button class="btn btn-default"
+                    <span class="input-group-append">
+                        <button class="btn btn-icon btn-secondary btn-sm"
                                 ng-if="authorizedStory('updateEstimate', editableStory)"
                                 type="button"
                                 name="edit-effort"
-                                ng-click="showEditEffortModal(story)"><i class="fa fa-pencil"></i></button>
+                                ng-click="showEditEffortModal(story)"><i class="icon icon-edit"></i></button>
                     </span>
                 </div>
             </div>
@@ -236,9 +242,9 @@
                 </ui-select>
             </div>
         </div>
-        <div class="clearfix no-padding">
+        <div class="row">
             <div class="form-1-quarter">
-                <label for="value"><i class="fa fa-line-chart"></i> ${message(code: 'is.story.value')}</label>
+                <label for="value">${message(code: 'is.story.value')}</label>
                 <div class="input-group">
                     <ui-select class="form-control"
                                ng-click="editForm(true)"
@@ -251,11 +257,11 @@
                             <span ng-bind-html="'' + i | highlight: $select.search"></span>
                         </ui-select-choices>
                     </ui-select>
-                    <span class="input-group-btn" ng-if="authorizedStory('update', editableStory)">
-                        <button class="btn btn-default"
+                    <span class="input-group-append" ng-if="authorizedStory('update', editableStory)">
+                        <button class="btn btn-icon btn-secondary btn-sm"
                                 type="button"
                                 name="edit-value"
-                                ng-click="showEditValueModal(story)"><i class="fa fa-pencil"></i></button>
+                                ng-click="showEditValueModal(story)"><i class="icon icon-edit"></i></button>
                     </span>
                 </div>
             </div>
@@ -279,22 +285,27 @@
             </div>
             <div class="form-half">
                 <label for="creator">${message(code: 'is.story.creator')}</label>
-                <ui-select ng-click="editForm(true);searchCreator($select)"
-                           ng-change="editForm(true)"
-                           ng-disabled="!formEditable() || !authorizedStory('updateCreator', editableStory)"
-                           class="form-control"
-                           name="creator"
-                           search-enabled="true"
-                           ng-model="editableStory.creator">
-                    <ui-select-match title="{{ $select.selected | userFullName }}">
-                        {{ $select.selected | userFullName }}
-                    </ui-select-match>
-                    <ui-select-choices refresh="searchCreator($select)"
-                                       refresh-delay="100"
-                                       repeat="creator in creators | orFilter: { username: $select.search, name: $select.search, email: $select.search }">
-                        <span ng-bind-html="(creator | userFullName) | highlight: $select.search"></span>
-                    </ui-select-choices>
-                </ui-select>
+                <div class="d-flex">
+                    <div class="avatar {{ editableStory.creator | userColorRoles }} mr-2">
+                        <img ng-src="{{ editableStory.creator | userAvatar }}" height="32px"/>
+                    </div>
+                    <ui-select ng-click="editForm(true);searchCreator($select)"
+                               ng-change="editForm(true)"
+                               ng-disabled="!formEditable() || !authorizedStory('updateCreator', editableStory)"
+                               class="form-control"
+                               name="creator"
+                               search-enabled="true"
+                               ng-model="editableStory.creator">
+                        <ui-select-match title="{{ $select.selected | userFullName }}">
+                            {{ $select.selected | userFullName }}
+                        </ui-select-match>
+                        <ui-select-choices refresh="searchCreator($select)"
+                                           refresh-delay="100"
+                                           repeat="creator in creators | orFilter: { username: $select.search, name: $select.search, email: $select.search }">
+                            <span ng-bind-html="(creator | userFullName) | highlight: $select.search"></span>
+                        </ui-select-choices>
+                    </ui-select>
+                </div>
             </div>
         </div>
         <div class="form-group">
@@ -309,44 +320,37 @@
                       ng-show="showNotesTextarea"
                       ng-blur="showNotesTextarea = false"
                       placeholder="${message(code: 'is.ui.backlogelement.nonotes')}"></textarea>
-            <div class="markitup-preview important"
+            <div class="markitup-preview form-control"
                  ng-disabled="!formEditable()"
                  ng-show="!showNotesTextarea"
-                 ng-click="showNotesTextarea = formEditable()"
                  ng-focus="editForm(true); showNotesTextarea = formEditable()"
                  ng-class="{'placeholder': !editableStory.notes_html}"
                  tabindex="0"
-                 ng-bind-html="editableStory.notes_html ? editableStory.notes_html : '<p>${message(code: 'is.ui.backlogelement.nonotes')}</p>'"></div>
+                 bind-html-scope="markitupCheckboxOptions()"
+                 bind-html-compile="editableStory.notes_html ? editableStory.notes_html : '<p>${message(code: 'is.ui.backlogelement.nonotes')}</p>'"></div>
         </div>
-        <div class="form-group">
-            <label><i class="fa fa-paperclip"></i> ${message(code: 'is.backlogelement.attachment')} {{ story.attachments_count > 0 ? '(' + story.attachments.length + ')' : '' }}</label>
-            <div ng-if="authorizedStory('upload', story)" ng-controller="attachmentNestedCtrl">
-                <button type="button"
-                        class="btn btn-default"
-                        flow-btn>
-                    <i class="fa fa-upload"></i> ${message(code: 'todo.is.ui.new.upload')}
-                </button>
-                <entry:point id="attachment-add-buttons"/>
+        <label>${message(code: 'is.backlogelement.attachment')} {{ story.attachments_count > 0 ? ': ' + story.attachments.length : '' }}</label>
+        <div class="attachments attachments-bordered">
+            <div ng-if="authorizedStory('upload', story)" ng-controller="attachmentNestedCtrl" class="upload-and-apps row">
+                <div class="upload-file col-6">
+                    <span class="attachment-icon"></span><span flow-btn class="link">${message(code: 'todo.is.ui.attachment.add')}</span>&nbsp;<span class="d-none d-md-inline">${message(code: 'todo.is.ui.attachment.drop')}</span>
+                </div>
+                <div class="upload-apps col-6">
+                    <g:include view="attachment/_buttons.gsp"/>
+                </div>
             </div>
-            <div class="form-control-static" ng-include="'attachment.list.html'">
-            </div>
+            <div ng-include="'attachment.list.html'"></div>
         </div>
     </div>
-    <div class="panel-footer" ng-if="isModal || formHolder.editing">
+    <div class="card-footer" ng-if="isModal || formHolder.editing">
         <div class="btn-toolbar" ng-class="[{ 'text-right' : isModal }]">
-            <button class="btn btn-primary"
-                    ng-if="formHolder.editing && (isLatest() || application.submitting)"
-                    ng-disabled="!isDirty() || formHolder.storyForm.$invalid || application.submitting"
-                    type="submit">
-                ${message(code: 'default.button.update.label')}
+            <button class="btn btn-secondary"
+                    type="button"
+                    ng-if="isModal && !isDirty()"
+                    ng-click="$close()">
+                ${message(code: 'is.button.close')}
             </button>
-            <button class="btn btn-danger"
-                    ng-if="formHolder.editing && !isLatest() && !application.submitting"
-                    ng-disabled="!isDirty() || formHolder.storyForm.$invalid"
-                    type="submit">
-                ${message(code: 'default.button.override.label')}
-            </button>
-            <button class="btn btn-default"
+            <button class="btn btn-secondary"
                     type="button"
                     ng-if="(!isModal && formHolder.editing) || (isModal && isDirty())"
                     ng-click="editForm(false)">
@@ -358,11 +362,17 @@
                     ng-click="resetStoryForm()">
                 <i class="fa fa-warning"></i> ${message(code: 'default.button.refresh.label')}
             </button>
-            <button class="btn btn-default"
-                    type="button"
-                    ng-if="isModal && !isDirty()"
-                    ng-click="$close()">
-                ${message(code: 'is.button.close')}
+            <button class="btn btn-danger"
+                    ng-if="formHolder.editing && !isLatest() && !application.submitting"
+                    ng-disabled="!isDirty() || formHolder.storyForm.$invalid"
+                    type="submit">
+                ${message(code: 'default.button.override.label')}
+            </button>
+            <button class="btn btn-primary"
+                    ng-if="formHolder.editing && (isLatest() || application.submitting)"
+                    ng-disabled="!isDirty() || formHolder.storyForm.$invalid || application.submitting"
+                    type="submit">
+                ${message(code: 'default.button.update.label')}
             </button>
         </div>
     </div>

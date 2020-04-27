@@ -51,7 +51,7 @@ var extensibleController = function(appControllerName, controllerArray) {
     controllers.controller(appControllerName, newControllerArray);
 };
 
-extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$uibModal', 'SERVER_ERRORS', 'Fullscreen', 'notifications', '$http', '$window', '$timeout', 'Session', 'UserService', 'postitSize', function($controller, $scope, $state, $uibModal, SERVER_ERRORS, Fullscreen, notifications, $http, $window, $timeout, Session, UserService, postitSize) {
+extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$uibModal', 'SERVER_ERRORS', 'WorkspaceType', 'Fullscreen', 'notifications', '$http', '$window', '$timeout', 'Session', 'UserService', 'stickyNoteSize', function($controller, $scope, $state, $uibModal, SERVER_ERRORS, WorkspaceType, Fullscreen, notifications, $http, $window, $timeout, Session, UserService, stickyNoteSize) {
     $controller('headerCtrl', {$scope: $scope});
     // Functions
     $scope.displayDetailsView = function() {
@@ -97,37 +97,35 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
                     return _.includes($scope.selectedIds, story.id);
                 };
                 $scope.submit = function(selectedIds) {
-                    options.submit(selectedIds, $scope.backlog.stories).then(function() {
+                    var ids = [];
+                    _.each(selectedIds, function(isSelected, storyId) {
+                        if (isSelected) {
+                            ids.push(parseInt(storyId));
+                        }
+                    });
+                    options.submit(ids, $scope.backlog.stories).then(function() {
                         $scope.$close(true);
                     });
                 };
                 $scope.filterStories = function() {
-                    $scope.selectedIds = [];
+                    var previousSelectedIds = $scope.selectedIds ? $scope.selectedIds : {};
                     $scope.backlog.storiesLoaded = false;
                     StoryService.filter($scope.selectorOptions.filter, $scope.getProjectFromState()).then(function(stories) {
                         $scope.backlog.stories = $scope.selectorOptions.order ? $filter('orderBy')(stories, $scope.selectorOptions.order) : stories;
                         $scope.backlog.storiesLoaded = true;
-                        if ($scope.selectorOptions.initSelectedIds) {
-                            $scope.selectedIds = $scope.selectorOptions.initSelectedIds($scope.backlog.stories);
-                        }
+                        $scope.selectedIds = _.transform(stories, function(selectedIds, story) {
+                            selectedIds[story.id] = $scope.selectorOptions.initSelectedIds ? _.includes($scope.selectorOptions.initSelectedIds, story.id) : false;
+                        }, {});
+                        $scope.selectedIds = _.extend($scope.selectedIds, previousSelectedIds);
                     });
                 };
                 // Init
                 $scope.buttonColor = options.buttonColor ? options.buttonColor : 'primary';
-                $scope.disabledGradient = true;
-                $scope.selectedIds = [];
+                $scope.selectedIds = {};
                 $scope.backlog = {
                     stories: [],
                     code: options.code,
                     storiesLoaded: false
-                };
-                $scope.selectableOptions = {
-                    notSelectableSelector: '.action, button, a',
-                    allowMultiple: true,
-                    forceMultiple: true,
-                    selectionUpdated: function(selectedIds) {
-                        $scope.selectedIds = selectedIds;
-                    }
                 };
                 $scope.selectorOptions = options;
                 $scope.filterStories();
@@ -137,20 +135,12 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
     $scope.fullScreen = function() {
         $scope.application.isFullScreen = !$scope.application.isFullScreen;
     };
-    // Postit size
-    $scope.currentPostitSize = function(viewName, defaultSize) {
-        return postitSize.currentPostitSize(viewName, defaultSize);
-    };
-    $scope.iconCurrentPostitSize = function(viewName) {
-        return postitSize.iconCurrentPostitSize(viewName);
-    };
-    $scope.setPostitSize = function(viewName) {
-        postitSize.setPostitSize(viewName);
-    };
+    $scope.currentStickyNoteSize = stickyNoteSize.currentStickyNoteSize;
+    $scope.iconCurrentStickyNoteSize = stickyNoteSize.iconCurrentStickyNoteSize;
+    $scope.setStickyNoteSize = stickyNoteSize.setStickyNoteSize;
     $scope.goToHome = function() {
         window.location.href = $scope.serverUrl;
     };
-    // Print
     $scope.print = function(data) {
         var url = data;
         if (angular.isObject(data)) {
@@ -174,7 +164,7 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
     };
     // Init loading
     $scope.$on('$viewContentLoading', function() {
-        $scope.application.loading = true;
+        $scope.uiWorking();
         if ($scope.application.loadingPercent < 90) {
             $scope.application.loadingPercent += 5;
         }
@@ -188,7 +178,7 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
             if ($scope.application.loadingPercent < 90) {
                 $scope.application.loadingPercent += 5;
             } else {
-                $scope.application.loading = false;
+                $scope.uiReady();
             }
             $timeout.cancel(resizeTimeout);
             resizeTimeout = $timeout(function() {
@@ -201,19 +191,21 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
             if ($element && $element[0]) {
                 $element.parents('.scrollable-selectable-container').scrollToVisible($element[0]);
             }
-        }, 100);
+        }, 150);
     });
     $scope.$on('$stateChangeStart', function(event) {
         if (!event.defaultPrevented) {
-            $scope.application.loading = true;
             if ($scope.application.loadingPercent != 100) {
                 $scope.application.loadingPercent += 10;
+                $scope.uiWorking();
+            } else {
+                $scope.uiWorking(null); //no text
             }
         }
     });
     $scope.$on('$stateChangeSuccess', function(event) {
         if (!event.defaultPrevented) {
-            $scope.application.loading = false;
+            $scope.uiReady();
             if ($scope.application.loadingPercent != 100) {
                 $scope.application.loadingPercent = 100;
             }
@@ -222,7 +214,7 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
     $scope.$watch(function() {
         return $http.pendingRequests.length;
     }, function(newVal) {
-        $scope.application.loading = newVal > 0 || $scope.application.loadingPercent < 100;
+        newVal > 0 ? $scope.uiWorking($scope.application.loadingPercent < 100) : $scope.uiReady();
         if ($scope.application.loadingPercent < 100) {
             if (newVal == 0) {
                 $scope.application.loadingPercent = 100;
@@ -233,7 +225,7 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
     });
     // Init error managmeent
     $scope.$on(SERVER_ERRORS.notAuthenticated, function() {
-        $scope.showAuthModal();
+        $scope.logIn();
     });
     $scope.$on(SERVER_ERRORS.clientError, function(event, error) {
         var data = error.data;
@@ -257,16 +249,9 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
             notifications.error($scope.message('todo.is.ui.error.server'), $scope.message('todo.is.ui.error.unknown'));
         }
     });
-    if ($scope.displayWhatsNew && $scope.workspaceType == 'project') {
+    if ($scope.displayWhatsNew && $scope.workspaceType === WorkspaceType.PROJECT) {
         var modal = $uibModal.open({
             size: 'lg',
-            controller: function() {
-                $timeout(function() {
-                    $('#carousel-whats-new').carousel({
-                        interval: 5000
-                    })
-                }, 500);
-            },
             templateUrl: 'is.dialog.whatsNew.html'
         });
         modal.result.then(function() {
@@ -278,7 +263,7 @@ extensibleController('applicationCtrl', ['$controller', '$scope', '$state', '$ui
     }
 }]);
 
-extensibleController('mainMenuCtrl', ['$scope', '$location', 'ContextService', 'ProjectService', 'PortfolioService', 'FormService', 'PushService', 'UserService', 'Session', '$uibModal', function($scope, $location, ContextService, ProjectService, PortfolioService, FormService, PushService, UserService, Session, $uibModal) {
+extensibleController('mainMenuCtrl', ['$scope', '$location', '$timeout', 'ContextService', 'ProjectService', 'PortfolioService', 'FormService', 'PushService', 'UserService', 'Session', '$uibModal', function($scope, $location, $timeout, ContextService, ProjectService, PortfolioService, FormService, PushService, UserService, Session, $uibModal) {
     $scope.authorizedProject = ProjectService.authorizedProject;
     $scope.authorizedPortfolio = PortfolioService.authorizedPortfolio;
     $scope['import'] = function(project) {
@@ -287,24 +272,23 @@ extensibleController('mainMenuCtrl', ['$scope', '$location', 'ContextService', '
             keyboard: false,
             backdrop: 'static',
             templateUrl: url + "Dialog",
-            controller: ['$scope', '$http', '$rootScope', '$timeout', function($scope, $http, $rootScope, $timeout) {
+            controller: ['$scope', '$http', '$rootScope', 'projectUrlFilter', function($scope, $http, $rootScope, projectUrlFilter) {
                 // Functions
                 $scope.showProgress = function() {
                     $scope.progress = true;
                 };
                 $scope.handleImportError = function($file, $message) {
                     var data = JSON.parse($message);
-                    $scope.notifyError(angular.isArray(data) ? data[0].text : data.text, {duration: 8000});
+                    $scope.notifyError(angular.isArray(data) ? data[0].text : data.text, {delay: 8000});
                     $scope.$close(true);
                 };
                 $scope.checkValidation = function($message) {
                     var data = !angular.isObject($message) ? JSON.parse($message) : $message;
                     if (data && data.class == 'Project') {
                         $scope.$close(true);
-                        $rootScope.application.loading = true;
-                        $rootScope.application.loadingText = " ";
+                        $rootScope.uiWorking(null);
                         $timeout(function() {
-                            document.location = $scope.serverUrl + '/p/' + data.pkey + '/';
+                            $rootScope.openWorkspace(data);
                         }, 2000);
                     } else {
                         $scope.progress = false;
@@ -335,10 +319,9 @@ extensibleController('mainMenuCtrl', ['$scope', '$location', 'ContextService', '
                             var data = response.data;
                             if (data && data.class == 'Project') {
                                 $scope.$close(true);
-                                $rootScope.application.loading = true;
-                                $rootScope.application.loadingText = " ";
+                                $rootScope.uiWorking();
                                 $timeout(function() {
-                                    document.location = $scope.serverUrl + '/p/' + data.pkey + '/';
+                                    $rootScope.openWorkspace(data);
                                 }, 2000);
                             } else {
                                 $scope.checkValidation(data);
@@ -390,15 +373,37 @@ extensibleController('mainMenuCtrl', ['$scope', '$location', 'ContextService', '
         }
         return menuUrl;
     };
+    $scope.hideMenusToFitAvailableSpace = function() {
+        if (_.includes(['xs', 'sm', 'md'], $scope.application.mediaBreakpoint)) {
+            $scope.application.menus.visible = $scope.application.menus.visible.concat($scope.application.menus.hidden);
+            $scope.application.menus.hidden = [];
+        } else {
+            $timeout(function() {
+                var menuElement = angular.element('#primary-menu');
+                if (menuElement[0]) {
+                    var marginBetweenMenuAndNext = 8;
+                    var moreMenuWidth = 60;
+                    var menuMaxWidth = 169;
+                    // var leftSpace = menuElement.next().next().offset().left - menuElement.outerWidth() - menuElement.offset().left; // alternate way using offset, which may cost more
+                    var leftSpace = menuElement.parent().width() - menuElement.outerWidth() - menuElement.next().next().outerWidth() - menuElement.prev().prev().outerWidth();
+                    if (leftSpace <= marginBetweenMenuAndNext && $scope.application.menus.visible.length > 0) {
+                        $scope.application.menus.hidden.unshift($scope.application.menus.visible.pop());
+                    } else if ((leftSpace >= menuMaxWidth && $scope.application.menus.hidden.length >= 2) || (leftSpace >= (menuMaxWidth - moreMenuWidth) && $scope.application.menus.hidden.length === 1)) {
+                        $scope.application.menus.visible.push($scope.application.menus.hidden.shift());
+                    }
+                }
+            });
+        }
+    };
     // Init
     $scope.workspace = Session.getWorkspace();
     $scope.menuDragging = false;
     $scope.sortableId = 'menu';
     var menuSortableChange = function(event) {
+        var hiddenOffset = event.dest.sortableScope.modelValue === $scope.application.menus.hidden ? $scope.application.menus.visible.length : 0;
         UserService.updateMenuPreferences({
             menuId: event.source.itemScope.modelValue.id,
-            position: event.dest.index + 1,
-            hidden: event.dest.sortableScope.modelValue === $scope.application.menus.hidden
+            position: event.dest.index + hiddenOffset + 1
         }).catch(function() {
             $scope.revertSortable(event);
         });
@@ -406,7 +411,6 @@ extensibleController('mainMenuCtrl', ['$scope', '$location', 'ContextService', '
     $scope.menuSortableOptions = {
         itemMoved: menuSortableChange,
         orderChanged: menuSortableChange,
-        containment: 'header',
         accept: function(sourceItemHandleScope, destSortableScope) {
             return sourceItemHandleScope.itemScope.sortableScope.sortableId === destSortableScope.sortableId;
         },
@@ -417,6 +421,14 @@ extensibleController('mainMenuCtrl', ['$scope', '$location', 'ContextService', '
             $scope.menuDragging = false;
         }
     };
+    $scope.resizing = false;
+    $scope.$watch('application.menus', function() {
+        $scope.hideMenusToFitAvailableSpace();
+    }, true);
+    $(window).on("resize.menus", _.throttle($scope.hideMenusToFitAvailableSpace, 200));
+    $scope.$on("$destroy", function() {
+        $(window).off("resize.menus");
+    });
 }]);
 
 extensibleController('aboutCtrl', ['$scope', '$interval', 'active', 'FormService', 'Session', function($scope, $interval, active, FormService, Session) {
@@ -461,7 +473,7 @@ extensibleController('newCtrl', ['$scope', '$state', 'ProjectService', function(
     $scope.privateProject = true;
 }]);
 
-controllers.controller('headerCtrl', ['$scope', '$uibModal', 'Session', 'UserService', 'hotkeys', 'PushService', 'UserTokenService', function($scope, $uibModal, Session, UserService, hotkeys, PushService, UserTokenService) {
+controllers.controller('headerCtrl', ['$scope', '$uibModal', 'Session', 'UserService', 'hotkeys', 'PushService', 'UserTokenService', 'WorkspaceType', function($scope, $uibModal, Session, UserService, hotkeys, PushService, UserTokenService, WorkspaceType) {
     // Functions
     $scope.notificationToggle = function(open) {
         if (open) {
@@ -493,7 +505,7 @@ controllers.controller('headerCtrl', ['$scope', '$uibModal', 'Session', 'UserSer
     $scope.showAbout = function(activeTabIndex) {
         $uibModal.open({
             controller: 'aboutCtrl',
-            templateUrl: 'scrumOS/about',
+            templateUrl: $scope.serverUrl + '/scrumOS/about',
             resolve: {
                 active: function() {
                     return activeTabIndex; // Set active tab unsing index
@@ -525,7 +537,7 @@ controllers.controller('headerCtrl', ['$scope', '$uibModal', 'Session', 'UserSer
         };
         if (Session.admin()) {
             pushRole('admin');
-        } else if (Session.workspaceType == 'project') {
+        } else if (Session.workspaceType === WorkspaceType.PROJECT) {
             if (Session.owner(Session.workspace)) {
                 pushRole('owner');
             }
@@ -541,7 +553,7 @@ controllers.controller('headerCtrl', ['$scope', '$uibModal', 'Session', 'UserSer
             if (_.isEmpty(roles) && Session.stakeHolder()) {
                 pushRole('stakeHolder');
             }
-        } else if (Session.workspaceType == 'portfolio') {
+        } else if (Session.workspaceType === WorkspaceType.PORTFOLIO) {
             if (Session.bo()) {
                 pushRole('businessOwner');
             } else {
@@ -557,8 +569,27 @@ controllers.controller('headerCtrl', ['$scope', '$uibModal', 'Session', 'UserSer
         description: $scope.message('is.button.connect'),
         callback: function() {
             if (!Session.authenticated()) {
-                $scope.showAuthModal();
+                $scope.logIn();
             }
+        }
+    });
+    var linkAttributeMeeting = function(providerId, attribute) {
+        var linkAttribute = $scope.getMeetingProvider(providerId).link;
+        return linkAttribute && linkAttribute[attribute] ? linkAttribute[attribute] : '';
+    };
+    PushService.registerListener('meeting', 'CREATE', function(meeting) {
+        if (!Session.owner(meeting)) {
+            $scope.notifySuccess($scope.message('is.ui.collaboration.notification', [meeting.provider, meeting.topic]), {
+                button: {
+                    type: 'primary gold',
+                    name: $scope.message('is.ui.collaboration.join'),
+                    link: meeting.videoLink,
+                    rel: linkAttributeMeeting(meeting.provider, 'rel'),
+                    referrerpolicy: linkAttributeMeeting(meeting.provider, 'referrerpolicy'),
+                    target: '_blank'
+                },
+                delay: 15000
+            });
         }
     });
 }]);
@@ -587,9 +618,16 @@ controllers.controller('contextCtrl', ['$scope', '$location', '$state', '$timeou
         return $state.href($state.current.name, $state.params) + '?context=tag' + ContextService.contextSeparator + tag;
     };
     $scope.hasContextOrSearch = function() {
-        return $scope.application.context || $scope.application.search;
+        return $scope.hasContext() || $scope.hasSearch();
+    };
+    $scope.hasContext = function() {
+        return $scope.application.context;
+    };
+    $scope.hasSearch = function() {
+        return $scope.application.search;
     };
     $scope.clearContextAndSearch = function() {
+        $scope.application.search = null;
         $scope.setContext(null);
     };
     $scope.setContextTermAndColorIfNeeded = function() {
@@ -666,54 +704,22 @@ controllers.controller('contextCtrl', ['$scope', '$location', '$state', '$timeou
     });
 }]);
 
-extensibleController('loginCtrl', ['$scope', '$state', '$rootScope', 'SERVER_ERRORS', 'AuthService', function($scope, $state, $rootScope, SERVER_ERRORS, AuthService) {
-    $scope.credentials = {
-        j_username: $scope.username ? $scope.username : '',
-        j_password: ''
-    };
-    $rootScope.showRetrieveModal = function() {
-        if (isSettings.retrieveEnabled) {
-            $state.go('userretrieve');
-        } else {
-            $rootScope.showNotEnabledFeature();
-        }
-    };
-    $scope.login = function(credentials) {
-        AuthService.login(credentials).then(function(data) {
-            $scope.application.submitting = true; // Avoid duplicated login, the page reloading will set that back to false
-            var lastOpenedUrl = data.url;
-            var currentLocation = window.location.href.replace($rootScope.serverUrl, "");
-            if ($state.params.redirectTo) {
-                var oldLocation = document.location.href;
-                document.location = $state.params.redirectTo;
-                // Force location change even in the case only query param changed
-                if ($state.params.redirectTo.split('?')[0] === oldLocation.split('?')[0]) {
-                    document.location.reload(true);
-                }
-            } else if (['/', '/#', '/#/', '#/'].indexOf(currentLocation) !== -1 && lastOpenedUrl) {
-                document.location = lastOpenedUrl;
-            } else {
-                document.location.reload(true);
-            }
-        }, function() {
-            $rootScope.$broadcast(SERVER_ERRORS.loginFailed);
-        });
-    };
-}]);
-
-extensibleController('registerCtrl', ['$scope', 'User', 'UserService', 'Session', function($scope, User, UserService, Session) {
+extensibleController('registerCtrl', ['$scope', '$uibModal', '$timeout', 'User', 'UserService', 'Session', function($scope, $uibModal, $timeout, User, UserService, Session) {
     // Functions
     $scope.register = function() {
-        UserService.save($scope.user).then(function() {
-            $scope.$close($scope.user.username);
+        if ($scope.token) {
+            $scope.user.token = $scope.token;
+        }
+        UserService.save(angular.copy($scope.user)).then(function() {
+            var loginUrl = $scope.serverUrl + '/login/auth?username=' + $scope.user.username;
+            if ($scope.redirectTo) {
+                loginUrl += ('&' + isSettings.redirectTo + '=' + $scope.redirectTo);
+            }
+            document.location = loginUrl;
         });
     };
     // Init
-    var newUser = new User();
-    if ($scope.user) {
-        _.merge(newUser, $scope.user);
-    }
-    $scope.user = newUser;
+    $scope.user = new User();
     $scope.languages = {};
     $scope.languageKeys = [];
     Session.getLanguages().then(function(languages) {
@@ -724,6 +730,23 @@ extensibleController('registerCtrl', ['$scope', 'User', 'UserService', 'Session'
         }
         if (!$scope.user.preferences.language) {
             $scope.user.preferences.language = _.head($scope.languageKeys);
+        }
+    });
+    $timeout(function() {
+        if ($scope.token) {
+            $uibModal.open({
+                keyboard: false,
+                backdrop: 'static',
+                templateUrl: 'user.invitation.html',
+                controller: 'userInvitationCtrl',
+                scope: $scope
+            }).result.then(function(continuing) {
+                if (!continuing) {
+                    document.location = $scope.serverUrl;
+                }
+            }, function() {
+                document.location = $scope.serverUrl;
+            });
         }
     });
 }]);
@@ -792,6 +815,17 @@ controllers.controller('updateFormController', ['$scope', 'FormService', 'type',
         }
         $scope.resetFormValidation($scope.formHolder[form]);
     };
+    $scope.markitupCheckboxOptions = function(property, action) {
+        return {
+            options: {
+                object: function() { return $scope[editable]; },
+                property: property ? property : 'notes',
+                action: action ? action : $scope.update,
+                autoSubmit: function() { return !$scope.isInEditingMode(); },
+                isEnabled: function() { return $scope.formEditable(); }
+            }
+        }
+    };
     // Init
     $scope[type] = item;
     $scope[editable] = {};
@@ -846,6 +880,7 @@ controllers.controller("elementsListMenuCtrl", ['$scope', '$element', '$timeout'
         var navTabsSize = $element.children('#elementslist-list').outerWidth();
         var btnToolbarSize = $element.children('#elementslist-toolbar').outerWidth();
         var totalSpace = $element.width();
+        // This works on the backlog only when reducing the view, for wrong reasons : the space left is actually the place taken by the "new" button unless it goes on the next line
         var leftSpace = totalSpace - navTabsSize - btnToolbarSize;
         if (leftSpace <= 5 && $scope.visibleElementsList.length > 0) {
             $scope.hiddenElementsList.unshift($scope.visibleElementsList.pop());
@@ -879,7 +914,7 @@ controllers.controller("elementsListMenuCtrl", ['$scope', '$element', '$timeout'
         $scope.savedHiddenElementsOrder = $scope.getWindowSetting('hiddenElementsListOrder');
         $scope.savedVisibleElementsOrder = $scope.getWindowSetting('elementsListOrder');
         $scope.hideAndOrderElementsFromSettings(elementsList);
-        $timeout($scope.hideElementsToFitAvailableSpace, 0, true);
+        $timeout($scope.hideElementsToFitAvailableSpace);
     };
     $scope.isShown = function(element) {
         return _.includes([$state.params.pinnedElementId, $state.params.elementId], element[self.propId].toString());
@@ -963,7 +998,7 @@ controllers.controller("elementsListMenuCtrl", ['$scope', '$element', '$timeout'
         },
         dragEnd: function() {
             $scope.menuDragging = false;
-            $timeout($scope.hideElementsToFitAvailableSpace, 0, true);
+            $timeout($scope.hideElementsToFitAvailableSpace);
         }
     };
     $scope.closeElementUrl = function(element) {
@@ -979,12 +1014,14 @@ controllers.controller("elementsListMenuCtrl", ['$scope', '$element', '$timeout'
     // Watchers
     $scope.$watchCollection('elementsList', function() {
         $scope.hideAndOrderElementsFromSettings($scope.elementsList);
-        $timeout($scope.hideElementsToFitAvailableSpace, 0, true);
+        $timeout($scope.hideElementsToFitAvailableSpace);
     });
     $scope.$watchCollection('hiddenElementsList', function() {
-        $timeout($scope.hideElementsToFitAvailableSpace, 0, true);
+        $timeout($scope.hideElementsToFitAvailableSpace);
     });
-    $(window).on("resize.elementsList", _.throttle($scope.hideElementsToFitAvailableSpace, 200));
+    $(window).on("resize.elementsList", _.throttle(function() {
+        $timeout($scope.hideElementsToFitAvailableSpace);
+    }, 200));
     $scope.$on("$destroy", function() {
         $(window).off("resize.elementsList");
     });
@@ -1003,4 +1040,64 @@ extensibleController('tagCtrl', ['$scope', 'TagService', 'type', function($scope
     $scope.showTags = true;
     $scope.tags = [];
     $scope.itemType = type;
+}]);
+
+extensibleController('userRatingCtrl', ['$scope', '$timeout', 'FormService', 'UserService', 'Session', function($scope, $timeout, FormService, UserService, Session) {
+    // Functions
+    $scope.onSelectRating = function(rating) {
+        $scope.rating.value = rating;
+        $scope.showRatingText = $scope.rating.value <= 3;
+        if (!$scope.showRatingText) {
+            $scope.submitRating();
+        }
+    };
+    $scope.submitRating = function() {
+        FormService.httpPost("https://www.icescrum.com/wp-json/kagilum/v1/rating", $scope.rating).then(function(response) {
+            Session.user.preferences.iceScrumRating = $scope.rating.value;
+            UserService.update(Session.user);
+            $scope.thankYou = true;
+            $scope.showReview = Session.user.preferences.iceScrumRating > 3;
+            $scope.ratingId = response.rating_id;
+            if (!$scope.showReview) {
+                $timeout(function() {
+                    $scope.removeRating();
+                }, 3000);
+            }
+        });
+    };
+    $scope.showRating = function() {
+        if ($scope.online && Session.user.preferences) {
+            var nextRating;
+            if (Session.user.preferences.lastIceScrumRating) {
+                var delayBetweenRatings = Session.user.preferences.iceScrumRating === -1 ? 15 : 90;
+                nextRating = moment(Session.user.preferences.lastIceScrumRating).add(delayBetweenRatings, 'days');
+            } else {
+                nextRating = moment(Session.user.dateCreated).add(15, 'days')
+            }
+            return nextRating.isBefore(moment())
+        } else {
+            return false;
+        }
+    };
+    $scope.skipRating = function() {
+        $scope.rating.value = -1;
+        $scope.removeRating();
+        $scope.submitRating();
+    };
+    $scope.removeRating = function() {
+        angular.element("[ng-controller='userRatingCtrl']").remove();
+    };
+    // Init
+    $scope.rating = {
+        value: null,
+        text: null,
+        serverID: isSettings.serverID,
+        uuid: Session.user.uid
+    };
+    $scope.showReview = false;
+    $scope.showThankYou = false;
+    $scope.currentUser = Session.user;
+    FormService.httpNetIsReachable().then(function(isOnline) {
+        $scope.online = isOnline;
+    });
 }]);

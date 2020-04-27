@@ -32,6 +32,22 @@ class PortfolioUrlMappings {
                 portfolio(matches: /[0-9A-Z]*/)
             }
         }
+        // Hook
+        "/f/$portfolio/hook" {
+            controller = 'hook'
+            action = [POST: "save"]
+            constraints {
+                portfolio(matches: /[0-9A-Z]*/)
+            }
+        }
+        "/f/$portfolio/hook/$id" {
+            controller = 'hook'
+            action = [GET: "show", PUT: "update", DELETE: 'delete', POST: 'update']
+            constraints {
+                portfolio(matches: /[0-9A-Z]*/)
+                id(matches: /\d*/)
+            }
+        }
         // Tags
         "/f/$portfolio/tag" {
             controller = 'tag'
@@ -80,6 +96,13 @@ class PortfolioUrlMappings {
             action = 'definitions'
             constraints {
                 portfolio(matches: /[0-9A-Z]*/)
+            }
+        }
+        "/f/$portfolio/clientOauth/$providerId" {
+            controller = 'clientOauth'
+            action = [GET: 'show', PUT: 'save', POST: 'save', DELETE: 'delete']
+            constraints {
+                providerId(matches: /[0-9A-Za-z]*/)
             }
         }
     }

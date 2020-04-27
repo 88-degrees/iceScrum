@@ -24,7 +24,7 @@
 <div class="row">
     <div class="col-sm-12">
         <h4>${message(code: "is.team")}</h4>
-        <p class="help-block">
+        <p class="form-text">
             <span ng-if="teamCreatable()">
                 ${message(code: 'is.dialog.wizard.section.team.description')}
                 ${message(code: 'is.ui.user.add' + (grailsApplication.config.icescrum.invitation.enable ? '' : '.invite'))}
@@ -35,9 +35,9 @@
             <documentation doc-url="roles-teams-projects"/>
         </p>
     </div>
-    <div class="col-sm-4" style="margin-top: 11px;">
+    <div class="col-sm-6 form-group" ng-class="{'has-error': teamCreatable() && team.name && formHolder.noTeamAvailable}">
         <label for="team.name">{{ message(teamCreatable() ? 'todo.is.ui.create.or.select.team' : 'todo.is.ui.select.team' )}}</label>
-        <p class="input-group">
+        <div class="input-group">
             <input autocomplete="off"
                    type="text"
                    name="team.name"
@@ -47,38 +47,41 @@
                    uib-typeahead="team as team.name for team in searchTeam($viewValue, teamCreatable())"
                    typeahead-loading="searching"
                    typeahead-wait-ms="150"
+                   typeahead-no-results="formHolder.noTeamAvailable"
                    typeahead-on-select="selectTeam($item, $model, $label)"
                    typeahead-template-url="select.or.create.team.html"
                    typeahead-select-on-blur="true"
+                   typeahead-min-length="0"
                    ng-readonly="team.selected"
                    ng-model="team.name"
                    ng-required="isCurrentStep(2, 'project')">
-            <span class="input-group-addon" ng-if="teamRemovable(team)">
-                <i class="fa"
-                   ng-click="unSelectTeam()"
-                   ng-class="{ 'fa-search': !searching, 'fa-refresh':searching, 'fa-close':team.selected }">
-                </i>
+            <span class="input-group-append" ng-if="teamRemovable(team)">
+                <span class="input-group-text">
+                    <i class="fa"
+                       ng-click="unSelectTeam()"
+                       ng-class="{ 'fa-search': !searching, 'fa-refresh':searching, 'fa-close':team.selected }">
+                    </i>
+                </span>
             </span>
-        </p>
-        <div class="form-group" ng-if="type == 'editProject' && team.owner">
-            <label>
-                ${message(code: 'is.role.owner')}
-                <entry:point id="project-team-list-owner"/>
-            </label>
-            <div>
-                <img ng-src="{{ team.owner | userAvatar }}" height="24" width="24" class="img-rounded user-role" title="{{ team.owner.username }}">
+        </div>
+        <div ng-if="teamCreatable() && team.name && formHolder.noTeamAvailable" class="validation-error text-danger">${message(code: 'todo.is.ui.select.team.taken')}</div>
+    </div>
+    <div class="col-sm-6 form-group"
+         ng-if="type == 'editProject' && team.owner">
+        <label class="d-flex align-items-center">
+            <div>${message(code: 'is.role.owner')}</div>
+            <entry:point id="project-team-list-owner"/>
+        </label>
+        <div class="d-flex">
+            <div class="user-entry">
+                <img ng-src="{{ team.owner | userAvatar }}" title="{{ team.owner.username }}">
                 {{ team.owner | userFullName }}
             </div>
         </div>
-        <button ng-if="teamManageable(team)"
-                type="button"
-                class="btn btn-primary"
-                ng-click="manageTeam(team)">
-            ${message(code: 'todo.is.ui.team.manage')}
-        </button>
     </div>
-    <div class="col-sm-8" ng-show="team.selected">
-        <div ng-show="teamMembersEditable(team)">
+    <div ng-if="team.selected"
+         class="col-sm-12">
+        <div ng-if="teamMembersEditable(team)">
             <label for="member.search">${message(code: 'todo.is.ui.select.member')}</label>
             <p class="input-group">
                 <input autocomplete="off"
@@ -95,12 +98,14 @@
                        typeahead-wait-ms="250"
                        typeahead-on-select="addTeamMember($item, $model, $label)"
                        typeahead-template-url="select.member.html">
-                <span class="input-group-addon">
-                    <i class="fa" ng-class="{ 'fa-search': !searchingMember, 'fa-refresh':searchingMember, 'fa-close':member.name }"></i>
+                <span class="input-group-append">
+                    <span class="input-group-text">
+                        <i class="fa" ng-class="{ 'fa-search': !searchingMember, 'fa-refresh':searchingMember, 'fa-close':member.name }"></i>
+                    </span>
                 </span>
             </p>
         </div>
-        <table ng-if="team.members.length" class="table table-striped table-responsive">
+        <table ng-if="team.members.length" class="table table-striped">
             <thead>
                 <tr>
                     <th colspan="2">${message(code: 'is.ui.team.members')} ({{ team.members.length }})</th>
@@ -111,9 +116,24 @@
                    ng-include="'wizard.members.list.html'">
             </tbody>
         </table>
-        <div ng-if="team.members.length == 0">
+        <div ng-if="team.members.length == 0" class="form-text">
             ${message(code: 'todo.is.ui.team.no.members')}
         </div>
+    </div>
+    <div ng-if="team.selected"
+         class="col-12 btn-toolbar">
+        <button ng-if="teamManageable(team)"
+                type="button"
+                class="btn btn-primary btn-sm"
+                ng-click="manageTeam(team)">
+            ${message(code: 'todo.is.ui.team.manage')}
+        </button>
+        <button ng-if="teamLeavable(team)"
+                type="button"
+                class="btn btn-danger btn-sm"
+                ng-click="confirm({ message: message('is.dialog.members.leave.team.confirm'), callback: leaveTeam, args: [project] })">
+            ${message(code: 'is.dialog.members.leave.team')}
+        </button>
     </div>
 </div>
 </script>

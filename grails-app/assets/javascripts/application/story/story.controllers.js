@@ -24,7 +24,7 @@
  */
 
 // Depends on TaskService to instantiate Task push listeners (necessary to maintain counts). We should think of a better way to systematically register the listeners
-extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filter', '$window', 'StoryService', 'TaskService', 'FormService', 'StoryStatesByName', 'AcceptanceTestStatesByName', function($scope, $controller, $uibModal, $filter, $window, StoryService, TaskService, FormService, StoryStatesByName, AcceptanceTestStatesByName) {
+extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filter', '$window', 'StoryService', 'TaskService', 'FormService', 'StoryStatesByName', 'AcceptanceTestStatesByName', 'FeatureStatesByName', function($scope, $controller, $uibModal, $filter, $window, StoryService, TaskService, FormService, StoryStatesByName, AcceptanceTestStatesByName, FeatureStatesByName) {
     $controller('tagCtrl', {$scope: $scope, type: 'story'});
     // Functions
     $scope.acceptToBacklog = function(story) {
@@ -40,6 +40,17 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
     $scope.returnToSandbox = function(story) {
         StoryService.updateState(story, 'returnToSandbox').then(function() {
             $scope.notifySuccess($scope.message('is.ui.story.state.markAs.success', [$scope.storyStateName(StoryStatesByName.SUGGESTED)]) + ' ' + $scope.message('is.ui.story.state.sandbox.success'));
+        });
+    };
+    $scope.setTopPriority = function(story) {
+        var oldRank = story.rank;
+        story.rank = 1;
+        StoryService.update(story).then(function(updatedStory) {
+            if (updatedStory.rank !== 1) {
+                $scope.notifyWarning('is.ui.story.warning.rank.dependsOn');
+            }
+        }).catch(function() {
+            story.rank = oldRank;
         });
     };
     $scope.unPlan = function(story) {
@@ -131,7 +142,7 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
             action: function(story) { $scope.updateState(story, 'unDone', StoryStatesByName.IN_PROGRESS); }
         },
         {
-            name: 'is.ui.sprintPlan.menu.postit.shiftToNext',
+            name: 'is.ui.story.shiftToNext',
             visible: function(story) { return $scope.authorizedStory('shiftToNext', story)},
             action: function(story) { $scope.shiftToNext(story); }
         },
@@ -146,6 +157,11 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
             action: function(story) { $scope.showEditEffortModal(story); }
         },
         {
+            name: 'is.ui.backlog.menu.setTopPriority',
+            visible: function(story) { return $scope.authorizedStory('rank', story) },
+            action: function(story) { $scope.setTopPriority(story); }
+        },
+        {
             name: 'is.ui.backlog.menu.split',
             visible: function(story) { return $scope.authorizedStory('split', story) },
             action: function(story) { $scope.showStorySplitModal(story); }
@@ -158,7 +174,7 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
             name: 'todo.is.ui.permalink.copy',
             visible: function(story) { return true },
             action: function(story) {
-                FormService.copyToClipboard($filter('permalink')(story.uid, 'story')).then(function() {
+                FormService.copyToClipboard(story.permalink).then(function() {
                     $scope.notifySuccess('is.ui.permalink.copy.success');
                 }, function(text) {
                     $scope.notifyError('is.ui.permalink.copy.error' + ' ' + text);
@@ -177,12 +193,17 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
         },
         {
             name: 'is.ui.backlog.menu.delete',
+            deleteMenu: true,
             visible: function(story) { return $scope.authorizedStory('delete', story) },
-            action: function(story) { $scope.confirmDelete({callback: $scope.delete, args: [story]}); }
+            action: function(story) { $scope.delete(story); }
         }
     ];
     $scope.showStoryProgress = function(story) {
-        return story.tasks_count > 0 && story.state >= StoryStatesByName.PLANNED;
+        return story.tasks_count > 0 && story.state > StoryStatesByName.PLANNED && story.state < StoryStatesByName.DONE;
+    };
+    $scope.stateHoverProgress = function(story) {
+        var progress = $filter('percentProgress')(story.countDoneTasks, story.tasks_count);
+        return $scope.showStoryProgress(story) && progress > 50;
     };
     $scope.isEffortCustom = function() {
         return $scope.getProjectFromState().planningPokerGameType == 2;
@@ -245,6 +266,8 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
             var parentScope = $scope;
             $uibModal.open({
                 size: 'lg',
+                keyboard: false,
+                backdrop: 'static',
                 templateUrl: 'story.effort.html',
                 controller: ['$scope', '$timeout', function($scope, $timeout) {
                     $scope.editableStory = angular.copy(story);
@@ -273,9 +296,9 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
                         };
                         if ($scope.effortSuiteValues.length < 30) {
                             $scope.sliderEffort.rangeHighlights = [
-                                {start: 0, end: $scope.effortSuiteValues.indexOf(5)},
-                                {start: $scope.effortSuiteValues.indexOf(5), end: $scope.effortSuiteValues.indexOf(13)},
-                                {start: $scope.effortSuiteValues.indexOf(13), end: $scope.effortSuiteValues.length - 1}
+                                {start: 0, end: $scope.effortSuiteValues.indexOf(5), class: 'low-effort'},
+                                {start: $scope.effortSuiteValues.indexOf(5), end: $scope.effortSuiteValues.indexOf(13), class: 'medium-effort'},
+                                {start: $scope.effortSuiteValues.indexOf(13), end: $scope.effortSuiteValues.length - 1, class: 'high-effort'}
                             ]
                         }
                         $scope.$watch('sliderEffort.labelValue', function(newVal) {
@@ -301,8 +324,11 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
                         var effortIndex = _.findIndex($scope.efforts, function(effort2) {
                             return effort2 == effort;
                         });
-                        if (effortIndex == -1) {
+                        if (effortIndex === -1) {
                             effortIndex = _.sortedIndex($scope.efforts, effort);
+                            if (effort === 0 && $scope.efforts[0] === '?') { // Hack to ensure that 0 comes before '?'
+                                effortIndex = 1;
+                            }
                             $scope.efforts.splice(effortIndex, 0, effort);
                             storiesByEffort.splice(effortIndex, 0, []);
                             $scope.count.splice(effortIndex, 0, 0);
@@ -337,6 +363,8 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
         if (StoryService.authorizedStory('update', story)) {
             $uibModal.open({
                 size: 'lg',
+                keyboard: false,
+                backdrop: 'static',
                 templateUrl: 'story.value.html',
                 controller: ["$scope", '$timeout', function($scope, $timeout) {
                     $scope.editableStory = angular.copy(story);
@@ -415,9 +443,10 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
     };
     // Init
     $scope.storyStatesByName = StoryStatesByName;
+    $scope.featureStatesByName = FeatureStatesByName;
 }]);
 
-extensibleController('storySplitCtrl', ['$scope', 'Session', '$controller', '$q', 'StoryService', 'StoryStatesByName', 'story', function($scope, Session, $controller, $q, StoryService, StoryStatesByName, story) {
+extensibleController('storySplitCtrl', ['$scope', '$timeout', 'Session', '$controller', '$q', 'StoryService', 'StoryStatesByName', 'story', 'projectUrlFilter', function($scope, $timeout, Session, $controller, $q, StoryService, StoryStatesByName, story, projectUrlFilter) {
     $controller('storyCtrl', {$scope: $scope});
     $controller('storyAtWhoCtrl', {$scope: $scope});
     // Functions
@@ -457,6 +486,17 @@ extensibleController('storySplitCtrl', ['$scope', 'Session', '$controller', '$q'
                 story.value = value;
             });
         }
+    };
+    $scope.addNewStory = function() {
+        $scope.onChangeSplitNumber();
+        $timeout(function() {
+            var scroller = angular.element(".modal")[0];
+            scroller.scrollTop = scroller.scrollHeight;
+        }, 0, false);
+    };
+    $scope.removeAStory = function($index) {
+        $scope.splitCount -= 1;
+        $scope.stories.splice($index, 1);
     };
     $scope.submit = function(stories) {
         var tasks = [];
@@ -503,7 +543,7 @@ extensibleController('storySplitCtrl', ['$scope', 'Session', '$controller', '$q'
         $q.serial(tasks);
     };
     $scope.getCheckStoryNameUrl = function(story) {
-        return '/p/' + $scope.getProjectFromState().id + '/story' + (story.id ? ('/' + story.id) : '') + '/available';
+        return projectUrlFilter($scope.getProjectFromState().pkey) + 'story' + (story.id ? ('/' + story.id) : '') + '/available';
     };
     $scope.validateStoryName = function(newName, story) {
         return !newName || !story || _.find($scope.stories, function(otherStory) {
@@ -553,11 +593,11 @@ controllers.controller('storyAtWhoCtrl', ['$scope', '$controller', 'ActorService
     ];
 }]);
 
-extensibleController('storyDetailsCtrl', ['$scope', '$controller', '$state', '$timeout', '$filter', 'TaskConstants', "StoryTypesByName", "TaskStatesByName", 'AcceptanceTestStatesByName', 'Session', 'StoryService', 'FormService', 'FeatureService', 'ProjectService', 'UserService', 'ActorService', 'detailsStory', 'project',
-    function($scope, $controller, $state, $timeout, $filter, TaskConstants, StoryTypesByName, TaskStatesByName, AcceptanceTestStatesByName, Session, StoryService, FormService, FeatureService, ProjectService, UserService, ActorService, detailsStory, project) {
+extensibleController('storyDetailsCtrl', ['$scope', '$controller', '$state', '$timeout', '$filter', 'TaskConstants', "StoryTypesByName", "TaskStatesByName", 'AcceptanceTestStatesByName', 'WorkspaceType', 'Session', 'StoryService', 'TaskService', 'FormService', 'FeatureService', 'ProjectService', 'UserService', 'ActorService', 'detailsStory', 'project',
+    function($scope, $controller, $state, $timeout, $filter, TaskConstants, StoryTypesByName, TaskStatesByName, AcceptanceTestStatesByName, WorkspaceType, Session, StoryService, TaskService, FormService, FeatureService, ProjectService, UserService, ActorService, detailsStory, project) {
         $controller('storyCtrl', {$scope: $scope});
         $controller('storyAtWhoCtrl', {$scope: $scope});
-        $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsStory, clazz: 'story', project: project});
+        $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsStory, clazz: 'story', workspace: project, workspaceType: WorkspaceType.PROJECT});
         // Functions
         $scope.searchCreator = function($select) {
             if ($scope.formHolder.editing && $select.open) {
@@ -601,7 +641,7 @@ extensibleController('storyDetailsCtrl', ['$scope', '$controller', '$state', '$t
             if (!$('.atwho-view:visible').length && $scope.formHolder.storyForm.description.$valid) { // ugly hack on atwho
                 $scope.showDescriptionTextarea = false;
                 if ($scope.editableStory.description == null || $scope.editableStory.description.trim() == $scope.getDescriptionTemplate($scope.editableStory).trim()) {
-                    $scope.editableStory.description = '';
+                    $scope.editableStory.description = null;
                 }
             }
         };
@@ -624,7 +664,8 @@ extensibleController('storyDetailsCtrl', ['$scope', '$controller', '$state', '$t
             return $state.href(stateName, {storyTabId: storyTabId});
         };
         $scope.toggleFocusUrl = function() {
-            return $state.href($scope.application.focusedDetailsView ? ($state.params.storyTabId ? '^.^.tab' : '^') : $state.params.storyTabId ? '^.focus.tab' : '.focus', {storyTabId: $state.params.storyTabId});
+            var stateName = $scope.application.focusedDetailsView ? ($state.params.storyTabId ? '^.^.tab' : '^') : $state.params.storyTabId ? '^.focus.tab' : '.focus';
+            return $state.href(stateName, {storyTabId: $state.params.storyTabId});
         };
         $scope.currentStateUrl = function(id) {
             return $state.href($state.current.name, {storyId: id});
@@ -637,7 +678,7 @@ extensibleController('storyDetailsCtrl', ['$scope', '$controller', '$state', '$t
             return $state.href(stateName);
         };
         $scope.storyFeatureUrl = function(story) {
-            return $state.href('.feature.details', {storyId: story.id, featureId: story.feature.id});
+            return story.feature ? $state.href('.feature.details', {storyId: story.id, featureId: story.feature.id}) : '';
         };
         $scope.listFeatures = function() {
             FeatureService.list(project);
@@ -660,6 +701,7 @@ extensibleController('storyDetailsCtrl', ['$scope', '$controller', '$state', '$t
         $scope.hasSameProject = function(story1, story2) {
             return !story2 || !story2.project || (story1.project.id == story2.project.id)
         };
+        $scope.authorizedTask = TaskService.authorizedTask;
         $scope.getDependenceEntries = StoryService.getDependenceEntries; // To be overriden
         // Init
         $controller('updateFormController', {$scope: $scope, item: detailsStory, type: 'story'});
@@ -705,6 +747,11 @@ extensibleController('storyMultipleCtrl', ['$scope', '$controller', '$filter', '
     };
     $scope.returnToSandboxMultiple = function() {
         StoryService.updateStateMultiple(storyListId, project.id, 'returnToSandbox').then(function() {
+            $scope.notifySuccess($scope.message('is.ui.story.state.markAs.success.multiple', [$scope.storyStateName(StoryStatesByName.SUGGESTED)]) + ' ' + $scope.message('is.ui.story.state.sandbox.success.multiple'));
+        });
+    };
+    $scope.setTopPriorityMultiple = function() {
+        StoryService.rankMultiple(storyListId, 1, project.id).then(function() {
             $scope.notifySuccess($scope.message('is.ui.story.state.markAs.success.multiple', [$scope.storyStateName(StoryStatesByName.SUGGESTED)]) + ' ' + $scope.message('is.ui.story.state.sandbox.success.multiple'));
         });
     };
@@ -758,12 +805,13 @@ extensibleController('storyMultipleCtrl', ['$scope', '$controller', '$filter', '
     refreshStories();
 }]);
 
-extensibleController('storyNewCtrl', ['$scope', '$state', '$timeout', '$controller', 'Session', 'StoryService', 'FeatureService', 'hotkeys', 'StoryStatesByName', 'postitSize', 'screenSize', 'project', function($scope, $state, $timeout, $controller, Session, StoryService, FeatureService, hotkeys, StoryStatesByName, postitSize, screenSize, project) {
+extensibleController('storyNewCtrl', ['$scope', '$state', '$timeout', '$controller', 'Session', 'StoryService', 'FeatureService', 'hotkeys', 'StoryStatesByName', 'project', function($scope, $state, $timeout, $controller, Session, StoryService, FeatureService, hotkeys, StoryStatesByName, project) {
     $controller('storyCtrl', {$scope: $scope}); // inherit from storyCtrl
     // Functions
     $scope.resetStoryForm = function() {
+        var defaultState = $state.includes("backlog.backlog", {elementId: 'backlog'}) && $scope.authorizedStory('createAccepted') ? StoryStatesByName.ACCEPTED : StoryStatesByName.SUGGESTED;
         $scope.story = {
-            state: $scope.story ? $scope.story.state : StoryStatesByName.SUGGESTED,
+            state: $scope.story ? $scope.story.state : defaultState,
             feature: $scope.story && $scope.story.feature ? $scope.story.feature : undefined
         };
         $scope.resetFormValidation($scope.formHolder.storyForm);
@@ -811,15 +859,9 @@ extensibleController('storyNewCtrl', ['$scope', '$state', '$timeout', '$controll
         allowIn: ['INPUT'],
         callback: $scope.resetStoryForm
     });
-    var getStandalonePostitClass = function() {
-        $scope.postitClass = postitSize.standalonePostitClass($scope.viewName, 'grid-group size-sm');
-    };
-    getStandalonePostitClass();
-    screenSize.on('xs, sm', getStandalonePostitClass, $scope);
-    $scope.$watch(function() { return postitSize.currentPostitSize($scope.viewName); }, getStandalonePostitClass);
 }]);
 
-controllers.controller('storyBacklogCtrl', ['$controller', '$scope', '$filter', 'postitSize', 'screenSize', function($controller, $scope, $filter, postitSize, screenSize) {
+controllers.controller('storyBacklogCtrl', ['$controller', '$scope', '$filter', function($controller, $scope, $filter) {
     $controller('storyCtrl', {$scope: $scope}); // inherit from storyCtrl
     // Don't use orderBy filter on ng-repeat because it triggers sort on every single digest on the page, which happens all the time...
     // We are only interested in story updates
@@ -828,12 +870,6 @@ controllers.controller('storyBacklogCtrl', ['$controller', '$scope', '$filter', 
     };
     $scope.$watch('backlog.stories', updateOrder, true);
     $scope.$watch('orderBy', updateOrder, true);
-    var getPostitClass = function() {
-        $scope.postitClass = postitSize.postitClass($scope.viewName, 'grid-group size-sm');
-    };
-    getPostitClass();
-    screenSize.on('xs, sm', getPostitClass, $scope);
-    $scope.$watch(function() { return postitSize.currentPostitSize($scope.viewName); }, getPostitClass);
     // Hack to provide all the lists of stories to the current view
     // So it can look for previous / next story from a details view
     if ($scope.storyListGetters) {
@@ -849,8 +885,26 @@ controllers.controller('storyBacklogCtrl', ['$controller', '$scope', '$filter', 
     }
 }]);
 
-controllers.controller('featureStoriesCtrl', ['$controller', '$scope', '$filter', 'StoryStatesByName', 'ActorService', function($controller, $scope, $filter, StoryStatesByName, ActorService) {
+controllers.controller('featureStoriesCtrl', ['$controller', '$scope', '$filter', 'StoryStatesByName', 'ActorService', 'StoryService', function($controller, $scope, $filter, StoryStatesByName, ActorService, StoryService) {
+    // Functions
+    $scope.storySortableOptions = {
+        orderChanged: function(event) {
+            var story = event.source.itemScope.modelValue;
+            var newIndex = event.dest.index;
+            var stories = event.dest.sortableScope.modelValue;
+            StoryService.shiftRankInList(_.map(stories, 'id'), story, newIndex).catch(function() {
+                $scope.revertSortable(event);
+            });
+        },
+        accept: function(sourceItemHandleScope, destSortableScope) {
+            return sourceItemHandleScope.itemScope.sortableScope.sortableId === destSortableScope.sortableId;
+        }
+    };
+    $scope.isStorySortableByState = function(state) {
+        return state == StoryStatesByName.SUGGESTED && StoryService.authorizedStory('rank');
+    };
     // Init
+    $scope.sortableId = 'feature-stories';
     $scope.storyEntries = [];
     $scope.$watch(function() {
         return $scope.selected.stories; // $scope.selected is inherited
@@ -881,11 +935,12 @@ controllers.controller('featureStoriesCtrl', ['$controller', '$scope', '$filter'
                 label += ' (' + stories.length;
                 var totalEffort = $filter('floatSumBy')(stories, 'effort');
                 if (totalEffort) {
-                    label += ' - ' + totalEffort + '<i class="fa fa-dollar fa-small"></i></small>'
+                    label += ' - ' + totalEffort;
                 }
                 label += ')';
                 return {
                     label: label,
+                    state: state,
                     stories: _.sortBy(stories, [function(story) {
                         return story.state === StoryStatesByName.ESTIMATED ? StoryStatesByName.ACCEPTED : story.state;
                     }, 'rank'])

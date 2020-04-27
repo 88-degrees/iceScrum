@@ -25,25 +25,16 @@
 
 var services = angular.module('services', ['restResource']);
 
-services.factory('AuthService', ['$http', '$rootScope', 'FormService', function($http, $rootScope, FormService) {
-    return {
-        login: function(credentials) {
-            return FormService.httpPost('j_spring_security_check', credentials, true);
-        }
-    };
-}]);
-
-services.service('Session', ['$timeout', '$http', '$rootScope', '$injector', 'UserService', 'User', 'PushService', 'IceScrumEventType', 'FormService', 'CacheService', function($timeout, $http, $rootScope, $injector, UserService, User, PushService, IceScrumEventType, FormService, CacheService) {
+services.service('Session', ['$timeout', '$http', '$rootScope', '$injector', 'UserService', 'User', 'PushService', 'IceScrumEventType', 'WorkspaceType', 'FormService', 'CacheService', function($timeout, $http, $rootScope, $injector, UserService, User, PushService, IceScrumEventType, WorkspaceType, FormService, CacheService) {
     var self = this;
     self.defaultView = '';
-    self.menus = {visible: [], hidden: []};
     self.user = new User();
     if (isSettings.workspace) {
         var workspaceConstructor = $injector.get(isSettings.workspace.class); // Get the ressource constructor, e.g. Portfolio or Project
         self.workspace = new workspaceConstructor();
         _.extend(self.workspace, isSettings.workspace);
         var workspaceType = self.workspace.class.toLowerCase();
-        if (workspaceType == 'project') {
+        if (workspaceType === WorkspaceType.PROJECT) {
             var project = self.workspace;
             project.startDate = new Date(project.startDate);
             project.endDate = new Date(project.endDate);
@@ -70,7 +61,7 @@ services.service('Session', ['$timeout', '$http', '$rootScope', '$injector', 'Us
             document.location.reload(true);
         }, 3500);
     };
-    this.create = function(user, roles, menus, defaultView) {
+    this.create = function(user, roles, defaultView) {
         _.extend(self.user, user);
         _.merge(self.roles, roles);
         self.defaultView = defaultView;
@@ -80,11 +71,6 @@ services.service('Session', ['$timeout', '$http', '$rootScope', '$injector', 'Us
                     self.unreadActivitiesCount = data.unreadActivitiesCount;
                 });
         }
-
-        var menusByVisibility = _.groupBy(menus, 'visible');
-        self.menus.visible = _.sortBy(menusByVisibility[true], 'position');
-        self.menus.hidden = _.sortBy(menusByVisibility[false], 'position');
-
         if (self.listeners.activity) {
             self.listeners.activity.unregister();
         }
@@ -244,7 +230,7 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
                 query += encodeURIComponent(_prefix + name) + '=' + encodeURIComponent(encodedDate) + '&';
             } else if (value instanceof Object) {
                 for (subName in value) {
-                    if (subName != 'class' && !_.startsWith(subName, '$')) {
+                    if ((subName !== 'class' || name === 'commentable') && !_.startsWith(subName, '$')) { // Commentable special case instead of removing  "!= 'class'" by fear of breaking everything
                         subValue = value[subName];
                         fullSubName = name + '.' + subName;
                         innerObj = {};
@@ -269,9 +255,25 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
         }
         return query.length ? query.substr(0, query.length - 1) : query;
     };
+    this.httpNetIsReachable = function(params) {
+        var paramObj = params || {};
+        if (!paramObj.headers) {
+            paramObj.headers = {};
+        }
+        paramObj.headers['x-icescrum-client'] = 'webclient';
+        return $http.get('https://www.icescrum.com/check.php?rand=' + Date.now(), paramObj).then(function(response) {
+            return response.status === 200;
+        }).catch(function() {
+            return false;
+        });
+    };
     this.httpGet = function(path, params, isAbsolute) {
         var fullPath = isAbsolute ? $rootScope.serverUrl + '/' + path : path;
         var paramObj = params || {};
+        if (!paramObj.headers) {
+            paramObj.headers = {};
+        }
+        paramObj.headers['x-icescrum-client'] = 'webclient';
         return $http.get(fullPath, paramObj).then(function(response) {
             return response.data;
         });
@@ -279,6 +281,10 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
     this.httpDelete = function(path, params, isAbsolute) {
         var fullPath = isAbsolute ? $rootScope.serverUrl + '/' + path : path;
         var paramObj = params || {};
+        if (!paramObj.headers) {
+            paramObj.headers = {};
+        }
+        paramObj.headers['x-icescrum-client'] = 'webclient';
         return $http.delete(fullPath, paramObj).then(function(response) {
             return response.data;
         });
@@ -286,11 +292,15 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
     this.httpPost = function(path, data, isAbsolute, params) {
         var fullPath = isAbsolute ? $rootScope.serverUrl + '/' + path : path;
         var paramObj = params || {
-            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'x-icescrum-client': 'webclient'},
             transformRequest: function(data) {
                 return self.formObjectData(data, '');
             }
         };
+        if (!paramObj.headers) {
+            paramObj.headers = {};
+        }
+        paramObj.headers['x-icescrum-client'] = 'webclient';
         return $http.post(fullPath, data, paramObj).then(function(response) {
             return response.data;
         });
@@ -317,7 +327,7 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
                         dontSaveChangesCallback();
                     },
                     cancelChangesCallback: function() {
-                        $scope.application.loading = false;
+                        $scope.uiReady();
                         $scope.mustConfirmStateChange = true;
                     }
                 });
@@ -471,19 +481,21 @@ services.service('CacheService', ['$injector', function($injector) {
     };
 }]);
 
-services.service('SyncService', ['$rootScope', '$injector', 'CacheService', 'projectCaches', 'Team', function($rootScope, $injector, CacheService, projectCaches, Team) { // Avoid injecting business service directly, use $injector instead in order to avoid circular references
+services.service('SyncService', ['$rootScope', '$injector', 'CacheService', 'workspaceCacheConfigs', 'Team', function($rootScope, $injector, CacheService, workspaceCacheConfigs, Team) { // Avoid injecting business service directly, use $injector instead in order to avoid circular references
     var sortByRank = function(obj1, obj2) {
         return obj1.rank - obj2.rank;
     };
     var syncFunctions = {
         portfolio: function(oldPortfolio, newPortfolio) {
             if (newPortfolio && !oldPortfolio) {
-                newPortfolio.features = [];
+                _.each(workspaceCacheConfigs.portfolio, function(portfolioCache) {
+                    newPortfolio[portfolioCache.arrayName] = []; // Init to empty to allow binding to a reference and automatically get the update
+                });
             }
         },
         project: function(oldProject, newProject) {
             if (newProject && !oldProject) {
-                _.each(projectCaches, function(projectCache) {
+                _.each(workspaceCacheConfigs.project, function(projectCache) {
                     newProject[projectCache.arrayName] = []; // Init to empty to allow binding to a reference and automatically get the update
                 });
                 newProject.team = new Team(newProject.team);
@@ -623,7 +635,7 @@ services.service('SyncService', ['$rootScope', '$injector', 'CacheService', 'pro
             }
         },
         feature: function(oldFeature, newFeature) {
-            var cachedProject = CacheService.get('project', newFeature ? newFeature.backlog.id : oldFeature.backlog.id);
+            var cachedProject = CacheService.get('project', newFeature ? _.get(newFeature, 'backlog.id') : _.get(oldFeature, 'backlog.id'));
             if (cachedProject) {
                 // Project
                 if (oldFeature && newFeature && oldFeature.rank != newFeature.rank) {
@@ -640,15 +652,12 @@ services.service('SyncService', ['$rootScope', '$injector', 'CacheService', 'pro
                         }
                     }
                 });
-                // Portfolio
-                if (cachedProject.portfolio) {
-                    var cachedPortfolio = CacheService.get('portfolio', cachedProject.portfolio.id);
-                    if (cachedPortfolio) {
-                        if (!oldFeature && newFeature && !_.find(cachedPortfolio.features, {id: newFeature.id})) {
-                            cachedPortfolio.features.push(newFeature);
-                        } else if (oldFeature && !newFeature) {
-                            _.remove(cachedPortfolio.features, {id: oldFeature.id});
-                        }
+            } else {
+                // TODO REMOVE WHEN PFV2
+                var cachedPortfolio = CacheService.get('portfolio', newFeature ? _.get(newFeature, 'portfolio.id') : _.get(oldFeature, 'portfolio.id'));
+                if (cachedPortfolio) {
+                    if (oldFeature && newFeature && oldFeature.rank != newFeature.rank) {
+                        cachedPortfolio.features.sort(sortByRank);
                     }
                 }
             }
@@ -696,30 +705,48 @@ services.service('SyncService', ['$rootScope', '$injector', 'CacheService', 'pro
                     _.remove(cachedStory.acceptanceTests, {id: oldAcceptanceTest.id});
                 }
             }
-        }
-    };
-    this.sync = function(itemType, oldItem, newItem) {
-        var projectCache = projectCaches[itemType];
-        if (projectCache) {
-            var projectPath = projectCache.projectPath + '.id';
-            if (!oldItem && newItem) {
-                var cachedProject = CacheService.get('project', _.get(newItem, projectPath));
-                if (cachedProject && !_.find(cachedProject[projectCache.arrayName], {id: newItem.id})) {
-                    cachedProject[projectCache.arrayName].push(newItem);
-                    if (projectCache.sort && projectCache.sort == 'rank') {
-                        cachedProject[projectCache.arrayName].sort(sortByRank);
+        },
+        comment: function(oldComment, newComment) {
+            if (!oldComment && newComment) {
+                var cachedCommentable = CacheService.get(newComment.commentable.class.toLowerCase(), newComment.commentable.id);
+                if (cachedCommentable && !_.find(cachedCommentable.comments, {id: newComment.id})) {
+                    if (!_.isArray(cachedCommentable.comments)) {
+                        cachedCommentable.comments = [];
                     }
+                    cachedCommentable.comments.push(newComment);
                 }
-            } else if (oldItem && !newItem) {
-                var cachedProject = CacheService.get('project', _.get(oldItem, projectPath));
-                if (cachedProject) {
-                    _.remove(cachedProject[projectCache.arrayName], {id: oldItem.id});
-                    if (projectCache.sort && projectCache.sort == 'rank') {
-                        cachedProject[projectCache.arrayName].sort(sortByRank);
-                    }
+            } else if (oldComment && !newComment) {
+                var cachedCommentable = CacheService.get(oldComment.commentable.class.toLowerCase(), oldComment.commentable.id);
+                if (cachedCommentable) {
+                    _.remove(cachedCommentable.comments, {id: oldComment.id});
                 }
             }
         }
+    };
+    this.sync = function(itemType, oldItem, newItem) {
+        _.each(workspaceCacheConfigs, function(cacheConfigs, workspaceType) {
+            var cacheConfig = cacheConfigs[itemType];
+            if (cacheConfig) {
+                var workspacePath = cacheConfig.workspacePath + '.id';
+                if (!oldItem && newItem) {
+                    var cachedProject = CacheService.get(workspaceType, _.get(newItem, workspacePath));
+                    if (cachedProject && !_.find(cachedProject[cacheConfig.arrayName], {id: newItem.id})) {
+                        cachedProject[cacheConfig.arrayName].push(newItem);
+                        if (cacheConfig.sort && cacheConfig.sort === 'rank') {
+                            cachedProject[cacheConfig.arrayName].sort(sortByRank);
+                        }
+                    }
+                } else if (oldItem && !newItem) {
+                    var cachedProject = CacheService.get(workspaceType, _.get(oldItem, workspacePath));
+                    if (cachedProject) {
+                        _.remove(cachedProject[cacheConfig.arrayName], {id: oldItem.id});
+                        if (cacheConfig.sort && cacheConfig.sort === 'rank') {
+                            cachedProject[cacheConfig.arrayName].sort(sortByRank);
+                        }
+                    }
+                }
+            }
+        });
         if (angular.isDefined(syncFunctions[itemType])) {
             syncFunctions[itemType](oldItem, newItem);
         }
@@ -760,30 +787,33 @@ restResource.factory('Resource', ['$resource', '$rootScope', '$q', 'FormService'
             save: {
                 method: 'post',
                 isArray: false,
-                headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+                headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'x-icescrum-client': 'webclient'},
                 transformRequest: transformRequest,
                 interceptor: getInterceptor(false)
             },
             saveArray: {
                 method: 'post',
                 isArray: true,
-                headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+                headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'x-icescrum-client': 'webclient'},
                 transformRequest: transformRequest,
                 interceptor: getInterceptor(true)
             },
             get: {
                 method: 'get',
                 interceptor: getInterceptor(false),
+                headers: {'x-icescrum-client': 'webclient'},
                 then: transformQueryParams
             },
             query: {
                 method: 'get',
                 isArray: true,
+                headers: {'x-icescrum-client': 'webclient'},
                 interceptor: getInterceptor(true),
                 then: transformQueryParams
             },
             deleteArray: {
                 method: 'delete',
+                headers: {'x-icescrum-client': 'webclient'},
                 isArray: true
             }
         };
@@ -918,13 +948,16 @@ services.service("DomainConfigService", [function() {
         },
         emailsSettings: {
             array: ['autoFollow', 'onUrgentTask', 'onStory']
+        },
+        hook: {
+            array: ['events']
         }
     };
     this.config.projectd = this.config.project;
     this.config.portfoliod = this.config.portfolio;
 }]);
 
-services.service('ContextService', ['$location', '$q', '$injector', 'TagService', 'ActorService', 'FeatureService', 'contextDecorators', function($location, $q, $injector, TagService, ActorService, FeatureService, contextDecorators) {
+services.service('ContextService', ['$location', '$q', '$injector', 'TagService', 'ActorService', 'FeatureService', 'WorkspaceType', 'contextDecorators', function($location, $q, $injector, TagService, ActorService, FeatureService, WorkspaceType, contextDecorators) {
     var self = this;
     this.contextSeparator = '_';
     this.getContextFromUrl = function() {
@@ -939,7 +972,7 @@ services.service('ContextService', ['$location', '$q', '$injector', 'TagService'
     this.contexts = [];
     this.loadContexts = function() {
         var Session = $injector.get('Session');
-        if (Session.workspaceType == 'project') {
+        if (Session.workspaceType == WorkspaceType.PROJECT) {
             var project = Session.workspace;
             return $q.all([TagService.getTags(), FeatureService.list(project), ActorService.list(project.id)]).then(function(data) {
                 var tags = data[0];
@@ -980,69 +1013,79 @@ services.service('TagService', ['FormService', function(FormService) {
     }
 }]);
 
-services.service('postitSize', ['screenSize', '$localStorage', function(screenSize, $localStorage) {
-    this.postitClass = function(viewName, defaultSize) {
-        return screenSize.is('xs, sm') ? 'list-group' : this.currentPostitSize(viewName, defaultSize);
+services.service('ClientOauthService', ['FormService', '$auth', 'SatellizerConfig', function(FormService, $auth, SatellizerConfig) {
+    var self = this;
+    this.authenticate = function(providerId, options, autosave) {
+        var data = {};
+        if (options && options.baseUrl) {
+            if (!SatellizerConfig.providers[providerId].defaultAuthorizationEndpoint) { //keep default
+                SatellizerConfig.providers[providerId].defaultAuthorizationEndpoint = SatellizerConfig.providers[providerId].authorizationEndpoint;
+            }
+            SatellizerConfig.providers[providerId].authorizationEndpoint = options.baseUrl + SatellizerConfig.providers[providerId].defaultAuthorizationEndpoint; //put full authorization url
+            data.baseTokenUrl = options.baseUrl;
+        }
+        if (options && options.clientId) {
+            SatellizerConfig.providers[providerId].clientId = options.clientId;
+            data.clientId = options.clientId;
+        }
+        return $auth.authenticate(providerId, data).then(function(response) {
+            var result = {oauth: response.data};
+            if (options) {
+                result.oauth.baseUrl = options.baseUrl;
+                result.oauth.clientId = options.clientId;
+            }
+            if (autosave) {
+                return self.save(providerId, result).then(function(response) {
+                    return response;
+                });
+            } else {
+                return result;
+            }
+        });
     };
-    this.standalonePostitClass = function(viewName, defaultSize) {
+    this.save = function(providerId, tokenData) {
+        return FormService.httpPost('clientOauth/' + providerId, tokenData); // Workspace sensitive
+    };
+    this.get = function(providerId) {
+        return FormService.httpGet('clientOauth/' + providerId); // Workspace sensitive
+    };
+    this.delete = function(providerId) {
+        return FormService.httpDelete('clientOauth/' + providerId); // Workspace sensitive
+    };
+    this.refresh = function(providerId) {
+        return FormService.httpGet('clientOauth/' + providerId + '/refresh'); // Workspace sensitive
+    }
+}]);
+
+services.service('stickyNoteSize', ['screenSize', '$localStorage', function(screenSize, $localStorage) {
+    this.currentStickyNoteSize = function(viewName, defaultSize) {
         if (screenSize.is('xs, sm')) {
-            return 'grid-group size-xs';
+            return 'list-group';
         } else {
-            var selectedSize = this.currentPostitSize(viewName, defaultSize);
-            return (selectedSize == 'list-group') ? 'grid-group size-l' : selectedSize;
+            var contextSizeName = viewName + 'PostitSize';
+            if (defaultSize && !$localStorage[contextSizeName]) {
+                $localStorage[contextSizeName] = defaultSize;
+            }
+            return $localStorage[contextSizeName];
         }
     };
-    this.currentPostitSize = function(viewName, defaultSize) {
-        var contextSizeName = viewName + 'PostitSize';
-        if (defaultSize && !$localStorage[contextSizeName]) {
-            $localStorage[contextSizeName] = defaultSize;
-        }
-        return screenSize.is('xs, sm') ? 'list-group' : $localStorage[contextSizeName];
-    };
-    this.cleanPostitSize = function(viewName) {
-        var contextSizeName = viewName + 'PostitSize';
-        delete $localStorage[contextSizeName];
-    };
-    this.iconCurrentPostitSize = function(viewName) {
+    this.iconCurrentStickyNoteSize = function(viewName) {
         var icon;
-        switch (this.currentPostitSize(viewName)) {
-            case 'grid-group size-l':
-                icon = 'fa-sticky-note fa-xl';
+        switch (this.currentStickyNoteSize(viewName)) {
+            case 'list-group':
+                icon = 'list-group';
                 break;
             case 'grid-group size-sm':
-                icon = 'fa-sticky-note fa-lg';
-                break;
-            case 'grid-group size-xs':
-                icon = 'fa-sticky-note';
-                break;
-            case 'list-group':
-                icon = 'fa-list';
+                icon = 'grid-group-sm';
                 break;
             default:
-                icon = 'fa-sticky-note';
+                icon = 'grid-group';
                 break;
         }
         return icon;
     };
-    this.setPostitSize = function(viewName) {
-        var next;
-        switch (this.currentPostitSize(viewName)) {
-            case 'grid-group size-l':
-                next = 'grid-group size-sm';
-                break;
-            case 'grid-group size-sm':
-                next = 'grid-group size-xs';
-                break;
-            case 'grid-group size-xs':
-                next = 'list-group';
-                break;
-            default:
-            case 'list-group':
-                next = 'grid-group size-l';
-                break;
-        }
-        var contextSizeName = viewName + 'PostitSize';
-        $localStorage[contextSizeName] = next;
+    this.setStickyNoteSize = function(viewName, postitSize) {
+        $localStorage[viewName + 'PostitSize'] = postitSize;
     };
 }]);
 
@@ -1052,8 +1095,82 @@ services.service('StoryTypesClasses', ['StoryTypesByName', function(StoryTypesBy
     this[StoryTypesByName.TECHNICAL_STORY] = 'technical';
 }]);
 
-services.service('StoryTypesIcons', ['StoryTypesByName', function(StoryTypesByName) {
-    this[StoryTypesByName.USER_STORY] = '';
-    this[StoryTypesByName.DEFECT] = 'bug';
-    this[StoryTypesByName.TECHNICAL_STORY] = 'cogs';
+services.service("ColorService", [function() {
+    this.hexToRgb = function(hex) {
+        var num = parseInt(hex.substring(1), 16);
+        var r = (num >> 16) & 255;
+        var g = (num >> 8) & 255;
+        var b = num & 255;
+        return [r, g, b];
+    };
+    this.rgbToHex = function(rgb) {
+        var decimalToRgb = function(decimal) {
+            var hex = decimal.toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        };
+        return '#' + decimalToRgb(rgb[0]) + decimalToRgb(rgb[1]) + decimalToRgb(rgb[2]);
+    };
+    this.rgbToHsl = function(rgb) {
+        var r = rgb[0] / 255;
+        var g = rgb[1] / 255;
+        var b = rgb[2] / 255;
+        var max = Math.max(r, g, b);
+        var min = Math.min(r, g, b);
+        var delta = max - min;
+        var h;
+        if (delta === 0) {
+            h = 0;
+        } else if (max === r) {
+            h = (g - b) / delta % 6;
+        } else if (max === g) {
+            h = (b - r) / delta + 2;
+        } else if (max === b) {
+            h = (r - g) / delta + 4;
+        }
+        var l = (min + max) / 2;
+        var s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+        h = h * 60;
+        if (h < 0) {
+            h += 360;
+        }
+        return [h, s, l];
+    };
+    this.hslToRgb = function(h, s, l) {
+        var c = (1 - Math.abs(2 * l - 1)) * s;
+        var hp = h / 60.0;
+        var x = c * (1 - Math.abs((hp % 2) - 1));
+        var rgb1;
+        if (isNaN(h)) {
+            rgb1 = [0, 0, 0];
+        } else if (hp <= 1) {
+            rgb1 = [c, x, 0];
+        } else if (hp <= 2) {
+            rgb1 = [x, c, 0];
+        } else if (hp <= 3) {
+            rgb1 = [0, c, x];
+        } else if (hp <= 4) {
+            rgb1 = [0, x, c];
+        } else if (hp <= 5) {
+            rgb1 = [x, 0, c];
+        } else if (hp <= 6) {
+            rgb1 = [c, 0, x];
+        }
+        var m = l - c * 0.5;
+        return [Math.round(255 * (rgb1[0] + m)), Math.round(255 * (rgb1[1] + m)), Math.round(255 * (rgb1[2] + m))];
+    };
+    this.normalizeH = function(originalH) { // H from HSL ranges from 0 to 359 as the value represents degrees on a circle
+        if (originalH >= 360) {
+            return originalH - 360;
+        } else if (originalH < 0) {
+            return originalH + 360;
+        } else {
+            return originalH;
+        }
+    };
+    this.brightness = function(rgb) { // Luminance / Luma in YIQ
+        return ((rgb[0] * 299) + (rgb[1] * 587) + (rgb[2] * 114)) / 1000;
+    };
+    this.rgbStringToRgb = function(rgbString) {
+        return rgbString.replace(/^(rgb|rgba)\(/, '').replace(/\)$/, '').replace(/\s/g, '').split(',');
+    };
 }]);

@@ -21,11 +21,10 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="form.practices.project.html">
-<h4>${message(code: "is.dialog.wizard.section.options")}</h4>
-<h5>${message(code: "is.dialog.wizard.section.practices.backlog")}</h5>
+<h4 class="mb-1">${message(code: "is.dialog.wizard.section.practices.backlog")}</h4>
 <div class="row">
     <div class="form-group" ng-class="project.preferences.noEstimation ? 'col-sm-12' : 'col-sm-6'">
-        <label for="noEstimation" class="checkbox-inline">
+        <label for="noEstimation">
             <input type="checkbox"
                    name="project.preferences.noEstimation"
                    id="noEstimation"
@@ -44,19 +43,29 @@
         </ui-select>
     </div>
 </div>
-<h5>${message(code: "is.dialog.wizard.section.practices.sprint")}</h5>
+<h4 class="mb-1">${message(code: "is.dialog.wizard.section.practices.sprint")}</h4>
 <div class="row">
+    <entry:point id="project-practices-sprint-before"/>
     <div class="form-half">
-        <label for="autoDoneStory" class="checkbox-inline">
+        <label for="autoDoneStory">
             <input type="checkbox"
                    name="project.preferences.autoDoneStory"
                    id="autoDoneStory"
                    ng-model="project.preferences.autoDoneStory">
-            {{ message('is.project.preferences.sprint.autoDoneStory', [(storyStatesByName.DONE | i18n: 'StoryStates')]) }}
+            {{ message('is.project.preferences.sprint.autoStateStory', [(storyStatesByName.DONE | i18n: 'StoryStates')]) }}
         </label>
     </div>
     <div class="form-half">
-        <label for="autoCreateTaskOnEmptyStory" class="checkbox-inline">
+        <label for="autoDoneFeature">
+            <input type="checkbox"
+                   name="project.preferences.autoDoneFeature"
+                   id="autoDoneFeature"
+                   ng-model="project.preferences.autoDoneFeature">
+            {{ message('is.project.preferences.autoDoneFeature', [(storyStatesByName.DONE | i18n: 'StoryStates')]) }}
+        </label>
+    </div>
+    <div class="form-half">
+        <label for="autoCreateTaskOnEmptyStory">
             <input type="checkbox"
                    name="project.preferences.autoCreateTaskOnEmptyStory"
                    id="autoCreateTaskOnEmptyStory"
@@ -65,7 +74,7 @@
         </label>
     </div>
     <div class="form-half">
-        <label for="assignOnCreateTask" class="checkbox-inline">
+        <label for="assignOnCreateTask">
             <input type="checkbox"
                    name="project.preferences.assignOnCreateTask"
                    id="assignOnCreateTask"
@@ -74,7 +83,7 @@
         </label>
     </div>
     <div class="form-half">
-        <label for="assignOnBeginTask" class="checkbox-inline">
+        <label for="assignOnBeginTask">
             <input type="checkbox"
                    name="project.preferences.assignOnBeginTask"
                    id="assignOnBeginTask"
@@ -83,7 +92,7 @@
         </label>
     </div>
     <div class="form-half">
-        <label for="displayRecurrentTasks" class="checkbox-inline">
+        <label for="displayRecurrentTasks">
             <input type="checkbox"
                    name="project.preferences.displayRecurrentTasks"
                    id="displayRecurrentTasks"
@@ -94,7 +103,7 @@
 </div>
 <div class="row">
     <div class="form-group" ng-class="project.preferences.displayUrgentTasks ? 'col-sm-6' : 'col-sm-12'">
-        <label for="displayUrgentTasks" class="checkbox-inline">
+        <label for="displayUrgentTasks">
             <input type="checkbox"
                    name="project.preferences.displayUrgentTasks"
                    id="displayUrgentTasks"

@@ -25,8 +25,14 @@
       ng-class="{'form-editable': formEditable(), 'form-editing': formHolder.editing }"
       show-validation
       novalidate>
-    <div class="panel-body">
-        <div class="clearfix no-padding">
+    <div class="card-body">
+        <div class="drop-zone d-flex align-items-center justify-content-center">
+            <div>
+                <asset:image src="application/upload.svg" width="70" height="70"/>
+                <span class="drop-text">${message(code: 'todo.is.ui.drop.here')}</span>
+            </div>
+        </div>
+        <div class="row is-form-row">
             <div class="form-2-tiers">
                 <label for="name">${message(code: 'is.task.name')}</label>
                 <div ng-class="{'input-group': formEditable()}">
@@ -36,11 +42,12 @@
                            ng-disabled="!formEditable()"
                            name="name"
                            ng-model="editableTask.name"
+                           autocomplete="off"
                            type="text"
                            class="form-control">
-                    <span class="input-group-btn" ng-if="formEditable()">
+                    <span class="input-group-append" ng-if="formEditable()">
                         <button colorpicker
-                                class="btn {{ editableTask.color | contrastColor }}"
+                                class="btn btn-sm btn-colorpicker {{ editableTask.color | contrastColor }}"
                                 type="button"
                                 ng-style="{'background-color': editableTask.color}"
                                 colorpicker-position="left"
@@ -49,12 +56,12 @@
                                 value="#bf3d3d"
                                 name="color"
                                 colors="mostUsedColors"
-                                ng-model="editableTask.color"><i class="fa fa-pencil"></i> ${message(code: 'todo.is.ui.color')}</button>
+                                ng-model="editableTask.color">${message(code: 'todo.is.ui.color')}</button>
                     </span>
                 </div>
             </div>
             <div ng-if="task.parentStory" class="form-1-tier">
-                <label for="parentStory"><i class="fa fa-sticky-note"></i> ${message(code: 'is.story')}</label>
+                <label for="parentStory">${message(code: 'is.story')}</label>
                 <input class="form-control" disabled="disabled" type="text" value="{{ task.parentStory.name }}"/>
             </div>
             <div ng-if="task.type" class="form-1-tier">
@@ -65,7 +72,7 @@
         <div class="form-group">
             <label for="description">${message(code: 'is.backlogelement.description')}</label>
             <textarea at
-                      class="form-control important"
+                      class="form-control"
                       ng-maxlength="3000"
                       ng-focus="editForm(true)"
                       ng-disabled="!formEditable()"
@@ -73,11 +80,28 @@
                       name="description"
                       ng-model="editableTask.description"></textarea>
         </div>
+        <div class="form-group"
+             ng-if="showResponsible()">
+            <label for="responsible" class="d-flex align-items-center justify-content-between">
+                ${message(code: 'is.task.responsible')}
+                <entry:point id="task-properties-inside-responsible"/>
+            </label>
+            <div class="d-flex">
+                <div class="avatar {{ editableTask.responsible | userColorRoles }} mr-2">
+                    <img ng-src="{{ editableTask.responsible | userAvatar }}" height="32px"/>
+                </div>
+                <input class="form-control"
+                       disabled="disabled"
+                       type="text"
+                       value="{{ editableTask.responsible | userFullName }}"/>
+            </div>
+        </div>
         <entry:point id="task-properties-middle"/>
-        <div class="form-group" ng-if="showTags">
-            <label for="tags">
+        <div class="form-group"
+             ng-if="showTags">
+            <label for="tags" class="d-flex align-items-center justify-content-between">
+                <div>${message(code: 'is.backlogelement.tags')}</div>
                 <entry:point id="item-properties-inside-tag"/>
-                ${message(code: 'is.backlogelement.tags')}
             </label>
             <ui-select class="form-control"
                        ng-click="retrieveTags(); editForm(true)"
@@ -95,15 +119,15 @@
             </ui-select>
         </div>
         <entry:point id="task-properties-after-tag"/>
-        <div class="clearfix no-padding">
+        <div class="row is-form-row task-estimate-row">
             <div class="form-half">
-                <label for="estimation">
-                    <i class="fa {{ task.state | taskStateIcon }}"></i> ${message(code: 'is.task.estimation')}
-                <entry:point id="task-estimation-after-label"/>
+                <label for="estimation" class="d-flex align-items-center justify-content-between">
+                    <div>${message(code: 'is.task.estimation')}</div>
+                    <entry:point id="task-properties-inside-estimation"/>
                 </label>
                 <div class="input-group">
-                    <span class="input-group-btn">
-                        <button class="btn btn-default"
+                    <span class="input-group-prepend">
+                        <button class="btn btn-secondary btn-sm"
                                 ng-if="authorizedTask('updateEstimate', editableTask)"
                                 type="button"
                                 ng-click="editForm(true); editableTask.estimation = minus(editableTask.estimation);">
@@ -117,8 +141,8 @@
                            ng-disabled="!formEditable() || !authorizedTask('updateEstimate', editableTask)"
                            name="estimation"
                            ng-model="editableTask.estimation"/>
-                    <span class="input-group-btn">
-                        <button class="btn btn-default"
+                    <span class="input-group-append">
+                        <button class="btn btn-secondary btn-sm"
                                 ng-if="authorizedTask('updateEstimate', editableTask)"
                                 type="button"
                                 ng-click="editForm(true); editableTask.estimation = plus(editableTask.estimation);">
@@ -136,7 +160,7 @@
             </div>
         </div>
         <div ng-if="task.sprint" class="form-group">
-            <label for="backlog"><i class="fa fa-tasks"></i> ${message(code: 'is.sprint')}</label>
+            <label for="backlog">${message(code: 'is.sprint')}</label>
             <input class="form-control" disabled="disabled" type="text" value="{{ task.sprint.parentRelease.name + ' - ' + (task.sprint | sprintName) }}"/>
         </div>
         <div class="form-group">
@@ -151,45 +175,37 @@
                       ng-show="showNotesTextarea"
                       ng-blur="showNotesTextarea = false"
                       placeholder="${message(code: 'is.ui.backlogelement.nonotes')}"></textarea>
-            <div class="markitup-preview important"
+            <div class="markitup-preview form-control"
                  ng-disabled="!formEditable()"
                  ng-show="!showNotesTextarea"
-                 ng-click="showNotesTextarea = formEditable()"
                  ng-focus="editForm(true); showNotesTextarea = formEditable()"
                  ng-class="{'placeholder': !editableTask.notes_html}"
                  tabindex="0"
-                 ng-bind-html="editableTask.notes_html ? editableTask.notes_html : '<p>${message(code: 'is.ui.backlogelement.nonotes')}</p>'"></div>
+                 bind-html-scope="markitupCheckboxOptions()"
+                 bind-html-compile="editableTask.notes_html ? editableTask.notes_html : '<p>${message(code: 'is.ui.backlogelement.nonotes')}</p>'"></div>
         </div>
-        <div class="form-group">
-            <label>${message(code: 'is.backlogelement.attachment')} {{ task.attachments_count > 0 ? '(' + task.attachments_count + ')' : '' }}</label>
-            <div ng-if="authorizedTask('upload', task)"
-                 ng-controller="attachmentNestedCtrl">
-                <button type="button"
-                        class="btn btn-default"
-                        flow-btn>
-                    <i class="fa fa-upload"></i> ${message(code: 'todo.is.ui.new.upload')}
-                </button>
-                <entry:point id="attachment-add-buttons"/>
+        <label>${message(code: 'is.backlogelement.attachment')} {{ task.attachments_count > 0 ? '(' + task.attachments_count + ')' : '' }}</label>
+        <div class="attachments attachments-bordered">
+            <div ng-if="authorizedTask('upload', task)" ng-controller="attachmentNestedCtrl" class="upload-and-apps row">
+                <div class="upload-file col-6">
+                    <span class="attachment-icon"></span><span flow-btn class="link">${message(code: 'todo.is.ui.attachment.add')}</span>&nbsp;<span class="d-none d-md-inline">${message(code: 'todo.is.ui.attachment.drop')}</span>
+                </div>
+                <div class="upload-apps col-6">
+                    <g:include view="attachment/_buttons.gsp"/>
+                </div>
             </div>
-            <div class="form-control-static" ng-include="'attachment.list.html'">
-            </div>
+            <div ng-include="'attachment.list.html'"></div>
         </div>
     </div>
-    <div class="panel-footer" ng-if="isModal || formHolder.editing">
+    <div class="card-footer" ng-if="isModal || formHolder.editing">
         <div class="btn-toolbar" ng-class="[{ 'text-right' : isModal }]">
-            <button class="btn btn-primary"
-                    ng-if="formHolder.editing && (isLatest() || application.submitting)"
-                    ng-disabled="!isDirty() || formHolder.taskForm.$invalid || application.submitting"
-                    type="submit">
-                ${message(code: 'default.button.update.label')}
+            <button class="btn btn-secondary"
+                    type="button"
+                    ng-if="isModal && !isDirty()"
+                    ng-click="$close()">
+                ${message(code: 'is.button.close')}
             </button>
-            <button class="btn btn-danger"
-                    ng-if="formHolder.editing && !isLatest() && !application.submitting"
-                    ng-disabled="!isDirty() || formHolder.taskForm.$invalid"
-                    type="submit">
-                ${message(code: 'default.button.override.label')}
-            </button>
-            <button class="btn btn-default"
+            <button class="btn btn-secondary"
                     type="button"
                     ng-if="(!isModal && formHolder.editing) || (isModal && isDirty())"
                     ng-click="editForm(false)">
@@ -201,11 +217,17 @@
                     ng-click="resetTaskForm()">
                 <i class="fa fa-warning"></i> ${message(code: 'default.button.refresh.label')}
             </button>
-            <button class="btn btn-default"
-                    type="button"
-                    ng-if="isModal && !isDirty()"
-                    ng-click="$close()">
-                ${message(code: 'is.button.close')}
+            <button class="btn btn-danger"
+                    ng-if="formHolder.editing && !isLatest() && !application.submitting"
+                    ng-disabled="!isDirty() || formHolder.taskForm.$invalid"
+                    type="submit">
+                ${message(code: 'default.button.override.label')}
+            </button>
+            <button class="btn btn-primary"
+                    ng-if="formHolder.editing && (isLatest() || application.submitting)"
+                    ng-disabled="!isDirty() || formHolder.taskForm.$invalid || application.submitting"
+                    type="submit">
+                ${message(code: 'default.button.update.label')}
             </button>
         </div>
     </div>

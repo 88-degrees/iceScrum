@@ -23,14 +23,22 @@
 
 import grails.util.Metadata
 import org.codehaus.groovy.grails.commons.DefaultGrailsApplication
+import org.icescrum.core.support.ApplicationSupport
 
 class BootStrap {
 
     def localeResolver
+    def authorityService
     def timeoutHttpSessionListener
     DefaultGrailsApplication grailsApplication
 
     def init = { servletContext ->
+
+        if(grailsApplication.config.icescrum.createDefaultAdmin && !grailsApplication.config.icescrum.setupCompleted){
+            println "Creating default admin..."
+            authorityService.initDefaultAdmin()
+            grailsApplication.config.icescrum.setupCompleted = true
+        }
 
         servletContext.addListener(timeoutHttpSessionListener)
         localeResolver.defaultLocale = Locale.ENGLISH
@@ -39,20 +47,25 @@ class BootStrap {
 
         println " "
         println " "
-        println """tt   tttttt   tttttt    EEEEE    EEEEEE    EEEE E     EE   EEEEEE EEEEE
-tt  tt   ttt ttt   tt  EE   EE  EE   EEE  EEE   E     EE  EE   EEEE   EEE
-tt tt     tt tt    tt  EE       E     EE  EE    E     EE  EE    EEE    EE
-tt t        tt   ttt   EEEE    EE         E     E     EE  E     EE     EE      ,
-tt t        tt ttt       EEEE  E         EE     E     EE  E     EE     EE ,,,,,,
-tt t        tt t            EE EE        EE     E     EE  E      E     E ,,,,,,,
-tt tt     tt tt     t EE    EE  E     EE EE     EE    EE  E      E       ,,,,,,
-tt  tt   ttt ttt   tt EEE   EE  EE   EEE EE     EE   EEE  E      E      ,,,,,,,
-t    tttttt    ttttt   EEEEEE    EEEEEE  EE      EEEEE    E      E     ,,,,,,,"""
+        println """                                                                                                                        
+            ,,,,,,,,,                                                                                                   
+        ...,,,,,,,,,,,,,,                                                                                               
+    ......,,,,,,,,,,,,,,*****                                                                                           
+..........,,,,,,,,,,,,,,,********  .,                          ,                                            
+  ........,,,,,,,,,,,,,*******,    .,                      ,##, .##/                                        
+ *%%%%*...,,,,,,,,,,,,,****////*   **   ,*****    *****.   (##.       /#####  /#(##(.##   ##. ##(####/####. 
+ %%%######*,,,,,,,,,,,*(((//////.  **  **       ,*,...,*,     /####/ ##.   ,  /##   .##   ##. ##   (#(   ## 
+   //########(*,,,*(((((////*,     **  **,   *,  **   ..   ##*   *## ##(   #( /##   .##   ##. ##   (#(   ## 
+(////////###((((((((((//*,,,,,,,.  **    ,***.    .****      (####     (###*  /##     (##*(#* ##   (#(   ## 
+   *///////*/(((((((**,,,,,,,.                                                                                          
+       */***********,,,,,,                                                                                              
+           ,******,,,,                                                                                                  
+               ,,,"""
         println " "
         println " "
-        println "Version: ${Metadata.current['app.version']} - Build date: ${Metadata.current['build.date'] ?: 'dev'}"
+        println "Version: ${Metadata.current['app.version']} - Build date: ${Metadata.current['build.date'] ?: 'now!'} - Release notes: ${ApplicationSupport.getReleaseNotesLink()}"
         println "Check our website for training, coaching or custom development: https://www.icescrum.com"
-        println "Try for free or buy your iceScrum Pro license and start using its nice features: https://www.icescrum.com/pricing"
+        println "Try for free or purchase a license to access all the Apps & integrations: https://www.icescrum.com/pricing/#on-premise"
         println " "
     }
 

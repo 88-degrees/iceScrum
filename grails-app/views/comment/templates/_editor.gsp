@@ -24,11 +24,11 @@
 <form ng-submit="save(editableComment, selected)"
       name="formHolder.commentForm"
       ng-class="['form-editable form-editing', formHolder.formExpanded ? 'form-expanded' : 'form-not-expanded']"
-      ng-class="{'form-not-expanded': !formHolder.formExpanded}"
       novalidate>
     <div class="form-group" style="position:relative;">
         <div class="visible-hidden" style="right:0;position:absolute;">
-            <button class="btn btn-primary"
+            <button class="btn btn-primary btn-sm"
+                    style="border-top-left-radius: 0; border-bottom-left-radius: 0;"
                     type="button"
                     ng-click="expandCommentEditor()">
                 <i class="fa fa-plus"></i>
@@ -46,7 +46,7 @@
                   is-model-html="editableComment.body_html"
                   ng-show="showCommentBodyTextarea"
                   placeholder="${message(code: 'todo.is.ui.comment')}"></textarea>
-        <div class="markitup-preview"
+        <div class="markitup-preview form-control"
              ng-show="!showCommentBodyTextarea"
              tabindex="0"
              ng-click="showCommentBodyTextarea = true"
@@ -55,10 +55,15 @@
              ng-bind-html="editableComment.body_html ? editableComment.body_html : '<p>${message(code: 'todo.is.ui.comment')}</p>'"></div>
     </div>
     <div class="btn-toolbar">
-        <button class="btn btn-primary pull-right"
+        <button class="btn btn-primary btn-sm float-right"
                 ng-disabled="!formHolder.commentForm.$dirty || formHolder.commentForm.$invalid"
                 type="submit">
             ${message(code: 'default.button.create.label')}
+        </button>
+        <button class="btn btn-secondary btn-sm float-right"
+                ng-click="formHolder.formExpanded = false;"
+                type="button">
+            ${message(code: 'is.button.cancel')}
         </button>
     </div>
 </form>

@@ -21,165 +21,180 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="story.details.html">
-<div class="panel panel-light"
+<div class="card"
      flow-init
      flow-drop
      flow-files-submitted="attachmentQuery($flow, story)"
      flow-drop-enabled="authorizedStory('upload', story)"
-     flow-drag-enter="dropClass='panel panel-light drop-enabled'"
-     flow-drag-leave="dropClass='panel panel-light'"
+     flow-drag-enter="dropClass='card drop-enabled'"
+     flow-drag-leave="dropClass='card'"
      ng-class="authorizedStory('upload', story) && dropClass">
-    <div class="panel-heading">
-        <h3 class="panel-title row">
-            <div class="left-title">
-                <i class="fa fa-sticky-note" ng-style="{color: story.feature ? story.feature.color : '#f9f157'}"></i>
-                <strong>{{ ::story.uid }}</strong>
+    <div class="details-header">
+        <a ng-if="previousStory()"
+           class="btn btn-icon"
+           role="button"
+           tabindex="0"
+           uib-tooltip="${message(code: 'is.ui.backlogelement.toolbar.previous')} (&#xf060;)"
+           tooltip-placement="bottom"
+           hotkey="{'left': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.previous')}"
+           href="{{ currentStateUrl(previousStory().id) }}">
+            <span class="icon icon-caret-left"></span>
+        </a>
+        <a class="btn btn-icon"
+           ng-class="nextStory() ? 'visible' : 'invisible'"
+           role="button"
+           tabindex="0"
+           uib-tooltip="${message(code: 'is.ui.backlogelement.toolbar.next')} (&#xf061;)"
+           tooltip-placement="bottom"
+           hotkey="{'right': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.next')}"
+           href="{{ currentStateUrl(nextStory() ? nextStory().id : story.id) }}">
+            <span class="icon icon-caret-right"></span>
+        </a>
+        <a class="btn btn-icon expandable"
+           ng-if="!isModal && !application.focusedDetailsView"
+           href="{{ toggleFocusUrl() }}"
+           tabindex="0"
+           uib-tooltip="${message(code: 'is.ui.window.focus')} (SHIFT+↑)"
+           tooltip-placement="bottom"
+           hotkey="{'space': hotkeyClick, 'shift+up': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.window.focus')}">
+            <span class="icon icon-expand"></span>
+        </a>
+        <a class="btn btn-icon expandable"
+           ng-if="!isModal && application.focusedDetailsView"
+           href="{{ toggleFocusUrl() }}"
+           tabindex="0"
+           uib-tooltip="${message(code: 'is.ui.window.unfocus')} (SHIFT+↓)"
+           tooltip-placement="bottom"
+           hotkey="{'escape': hotkeyClick, 'shift+down': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.window.unfocus')}">
+            <span class="icon icon-compress"></span>
+        </a>
+        <details-layout-buttons remove-ancestor="true"/>
+    </div>
+    <div class="card-header">
+        <div class="card-title">
+            <div class="details-title">
+                <span class="item-id">{{:: story.uid }}</span>
+                <span class="item-name" title="{{ story.name }}">{{ story.name }}</span>
                 <span defer-tooltip="{{ story.followers_ids.length }} ${message(code: 'todo.is.ui.followers')}"
                       ng-click="follow(story)">
                     <i class="fa" ng-class="story | followedByUser:'fa-star':'fa-star-o'"></i>
                 </span>
-                <span class="item-name" title="{{ story.name }}">{{ story.name }}</span>&nbsp;<small ng-show="story.origin">${message(code: 'is.story.origin')}: {{ story.origin }}</small>
-                <div style="margin-top:10px">
+                <entry:point id="story-details-after-star"/>
+                <div class="text-muted">
+                    <small ng-show="story.origin">${message(code: 'is.story.origin')}: {{ story.origin }}</small>
+                </div>
+                <div>
                     <entry:point id="story-details-left-title"/>
                 </div>
             </div>
-            <div class="right-title">
-                <div style="margin-bottom:10px" class="buttons-margin-bottom">
-                    <entry:point id="story-details-right-title"/>
-                    <span defer-tooltip="${message(code: 'is.story.creator')} {{ story.creator | userFullName }}">
-                        <img ng-src="{{ story.creator | userAvatar }}" alt="{{ story.creator | userFullName }}" class="{{ story.creator | userColorRoles }}"
-                             height="30px"/>
-                    </span>
-                    <a ng-if="previousStory()"
-                       class="btn btn-default"
-                       role="button"
-                       tabindex="0"
-                       hotkey="{'left': hotkeyClick}"
-                       hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.previous')}"
-                       href="{{ currentStateUrl(previousStory().id) }}">
-                        <i class="fa fa-caret-left" defer-tooltip="${message(code: 'is.ui.backlogelement.toolbar.previous')} (&#xf060;)"></i>
-                    </a>
-                    <a ng-if="nextStory()"
-                       class="btn btn-default"
-                       role="button"
-                       tabindex="0"
-                       hotkey="{'right': hotkeyClick}"
-                       hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.next')}"
-                       href="{{ currentStateUrl(nextStory().id) }}">
-                        <i class="fa fa-caret-right" defer-tooltip="${message(code: 'is.ui.backlogelement.toolbar.next')} (&#xf061;)"></i>
-                    </a>
-                    <a class="btn btn-default expandable"
-                       ng-if="!isModal && !application.focusedDetailsView"
-                       href="{{ toggleFocusUrl() }}"
-                       tabindex="0"
-                       hotkey="{'space': hotkeyClick, 'up': hotkeyClick}"
-                       hotkey-description="${message(code: 'is.ui.window.focus')}">
-                        <i class="fa fa-expand" defer-tooltip="${message(code: 'is.ui.window.focus')} (↑)"></i>
-                    </a>
-                    <a class="btn btn-default expandable"
-                       ng-if="!isModal && application.focusedDetailsView"
-                       href="{{ toggleFocusUrl() }}"
-                       tabindex="0"
-                       hotkey="{'escape': hotkeyClick, 'down': hotkeyClick}"
-                       hotkey-description="${message(code: 'is.ui.window.unfocus')}">
-                        <i class="fa fa-compress" defer-tooltip="${message(code: 'is.ui.window.unfocus')} (↓)"></i>
-                    </a>
-                    <details-layout-buttons ng-if="!isModal" remove-ancestor="true"/>
-                </div>
-                <div class="btn-group shortcut-menu" role="group">
-                    <shortcut-menu ng-model="story" model-menus="menus" view-type="'details'"></shortcut-menu>
-                    <div ng-class="['btn-group dropdown', {'dropup': application.minimizedDetailsView}]" uib-dropdown>
-                        <button type="button" class="btn btn-default" uib-dropdown-toggle>
-                            <i ng-class="['fa', application.minimizedDetailsView ? 'fa-caret-up' : 'fa-caret-down']"></i>
-                        </button>
-                        <ul uib-dropdown-menu class="pull-right" ng-init="itemType = 'story'" template-url="item.menu.html"></ul>
-                    </div>
-                </div>
+            <div class="btn-menu" uib-dropdown>
+                <shortcut-menu ng-model="story" model-menus="menus" view-type="'details'" btn-sm="true"></shortcut-menu>
+                <div uib-dropdown-toggle></div>
+                <div uib-dropdown-menu ng-init="itemType = 'story'; viewType = 'details'" template-url="item.menu.html"></div>
             </div>
-        </h3>
-        <a href="{{ tabUrl('activities') }}" class="story-states"><visual-states ng-model="story" model-states="storyStatesByName"/></a>
+        </div>
+        <entry:point id="story-details-before-states"/>
+        <a href="{{ tabUrl('activities') }}"><visual-states ng-model="story" model-states="storyStatesByName"/></a>
         <entry:point id="story-details-before-tabs"/>
     </div>
     <div class="details-content-container">
         <div class="details-content details-content-left">
-            <ul class="nav nav-tabs nav-tabs-is nav-justified disable-active-link">
-                <li role="presentation" ng-class="{'active':!$state.params.storyTabId}">
-                    <a href="{{ tabUrl() }}">
-                        <i class="fa fa-lg fa-edit"></i> ${message(code: 'todo.is.ui.details')}
-                    </a>
-                </li>
-                <li role="presentation" ng-class="{'active':$state.params.storyTabId == 'comments'}">
-                    <a href="{{ tabUrl('comments') }}">
-                        <i class="fa fa-lg" ng-class="story.comments_count ? 'fa-comment' : 'fa-comment-o'"></i> ${message(code: 'todo.is.ui.comments')} {{ story.comments_count | parens }}
+            <ul class="nav nav-tabs nav-justified disable-active-link">
+                <li role="presentation"
+                    class="nav-item text-nowrap">
+                    <a href="{{ tabUrl() }}"
+                       class="nav-link"
+                       ng-class="{'active':!$state.params.storyTabId}">
+                        ${message(code: 'todo.is.ui.details')}
                     </a>
                 </li>
                 <li role="presentation"
-                    class="hidden-sm"
-                    ng-if="!application.focusedDetailsView"
-                    uib-tooltip="${message(code: 'todo.is.ui.acceptanceTests')}"
-                    ng-class="getAcceptanceTestClass(story)">
-                    <a href="{{ tabUrl('tests') }}">
-                        <i class="fa fa-lg" ng-class="story.acceptanceTests_count ? 'fa-check-square' : 'fa-check-square-o'"></i> ${message(code: 'todo.is.ui.acceptanceTests.short')} {{ story.acceptanceTests_count | parens }}
+                    class="nav-item text-nowrap">
+                    <a href="{{ tabUrl('comments') }}"
+                       class="nav-link"
+                       ng-class="{'active':$state.params.storyTabId == 'comments'}">
+                        ${message(code: 'todo.is.ui.comments')} {{ story.comments_count | parens }}
                     </a>
                 </li>
                 <li role="presentation"
-                    class="hidden-sm hidden-md"
+                    class="nav-item text-nowrap d-none d-md-block"
                     ng-if="!application.focusedDetailsView"
-                    ng-class="{'active':$state.params.storyTabId == 'tasks'}">
-                    <a href="{{ tabUrl('tasks') }}">
-                        <i class="fa fa-lg fa-tasks"></i> ${message(code: 'todo.is.ui.tasks')} <span ng-bind-html="story | countAndRemaining"></span>
+                    uib-tooltip="${message(code: 'todo.is.ui.acceptanceTests')}">
+                    <a href="{{ tabUrl('tests') }}"
+                       class="nav-link"
+                       ng-class="getAcceptanceTestClass(story)">
+                        <i class="{{ (story.testState | acceptanceTestIcon) }}"></i>
+                        ${message(code: 'todo.is.ui.acceptanceTests.short')} {{ story.acceptanceTests_count | parens }}
                     </a>
                 </li>
-                <li role="presentation" class="dropdown display-on-hover">
-                    <a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
-                        <span style="font-size:1.3em" class="fa fa-caret-down"></span>
+                <li role="presentation"
+                    class="nav-item text-nowrap d-none d-lg-block"
+                    ng-if="!application.focusedDetailsView">
+                    <a href="{{ tabUrl('tasks') }}"
+                       class="nav-link"
+                       ng-class="{'active':$state.params.storyTabId == 'tasks'}">
+                        ${message(code: 'todo.is.ui.tasks')} <span ng-bind-html="story | countAndRemaining"></span>
                     </a>
-                    <ul class="dropdown-menu dropdown-more dropdown-menu-right">
-                        <li role="presentation"
-                            class="visible-sm-block"
-                            uib-tooltip="${message(code: 'todo.is.ui.acceptanceTests')}"
-                            ng-class="getAcceptanceTestClass(story)">
-                            <a href="{{ tabUrl('tests') }}">
-                                <i class="fa fa-lg" ng-class="story.acceptanceTests_count ? 'fa-check-square' : 'fa-check-square-o'"></i> ${message(code: 'todo.is.ui.acceptanceTests')} {{ story.acceptanceTests_count | parens }}
-                            </a>
-                        </li>
-                        <li role="presentation"
-                            class="visible-sm-block visible-md-block"
-                            ng-class="{'active':$state.params.storyTabId == 'tasks'}">
-                            <a href="{{ tabUrl('tasks') }}">
-                                <i class="fa fa-lg fa-tasks"></i> ${message(code: 'todo.is.ui.tasks')} {{ story.tasks_count | parens }}
-                            </a>
-                        </li>
-                        <li role="presentation" ng-class="{'active':$state.params.storyTabId == 'activities'}">
-                            <a href="{{ tabUrl('activities') }}">
-                                <i class="fa fa-lg fa-clock-o"></i> ${message(code: 'todo.is.ui.history')}
-                            </a>
-                        </li>
+                </li>
+                <li uib-dropdown
+                    role="presentation"
+                    class="nav-item display-on-hover">
+                    <a class="nav-link"
+                       ng-class="{'active': $state.params.storyTabId == 'activities'}"
+                       uib-dropdown-toggle
+                       role="button"
+                       aria-haspopup="true"
+                       aria-expanded="false"></a>
+                    <div uib-dropdown-menu
+                         class="dropdown-menu-right">
+                        <a class="dropdown-item d-md-none"
+                           uib-tooltip="${message(code: 'todo.is.ui.acceptanceTests')}"
+                           ng-class="getAcceptanceTestClass(story)"
+                           href="{{ tabUrl('tests') }}">
+                            ${message(code: 'todo.is.ui.acceptanceTests.short')} {{ story.acceptanceTests_count | parens }}
+                        </a>
+                        <a class="dropdown-item d-lg-none"
+                           ng-class="{'active':$state.params.storyTabId == 'tasks'}"
+                           href="{{ tabUrl('tasks') }}">
+                            ${message(code: 'todo.is.ui.tasks')} {{ story.tasks_count | parens }}
+                        </a>
+                        <a class="dropdown-item"
+                           ng-class="{'active':$state.params.storyTabId == 'activities'}"
+                           href="{{ tabUrl('activities') }}">
+                            ${message(code: 'todo.is.ui.history')}
+                        </a>
                         <entry:point id="story-details-tab-button"/>
-                    </ul>
+                    </div>
                 </li>
             </ul>
-            <div ui-view="details-tab-left">
+            <div ui-view="details-tab">
                 <g:include view="story/templates/_story.properties.gsp"/>
             </div>
         </div>
         <div ng-if="application.focusedDetailsView" class="details-content details-content-center">
-            <ul class="nav nav-tabs nav-tabs-is nav-justified disable-active-link">
+            <ul class="nav nav-tabs nav-justified disable-active-link">
                 <li role="presentation"
-                    ng-class="getAcceptanceTestClass(story)">
-                    <a href>
-                        <i class="fa fa-lg" ng-class="story.acceptanceTests_count ? 'fa-check-square' : 'fa-check-square-o'"></i> ${message(code: 'todo.is.ui.acceptanceTests')} {{ story.acceptanceTests_count | parens }}
+                    class="nav-item">
+                    <a href
+                       class="nav-link"
+                       ng-class="getAcceptanceTestClass(story)">
+                        ${message(code: 'todo.is.ui.acceptanceTests')} {{ story.acceptanceTests_count | parens }}
                     </a>
                 </li>
             </ul>
             <div ui-view="details-tab-center"></div>
         </div>
         <div ng-if="application.focusedDetailsView" class="details-content details-content-right">
-            <ul class="nav nav-tabs nav-tabs-is nav-justified disable-active-link">
+            <ul class="nav nav-tabs nav-justified disable-active-link">
                 <li role="presentation"
-                    class="active">
-                    <a href>
-                        <i class="fa fa-lg fa-tasks"></i> ${message(code: 'todo.is.ui.tasks')} <span ng-bind-html="story | countAndRemaining"></span>
+                    class="nav-item">
+                    <a href
+                       class="nav-link active">
+                        ${message(code: 'todo.is.ui.tasks')} <span ng-bind-html="story | countAndRemaining"></span>
                     </a>
                 </li>
             </ul>

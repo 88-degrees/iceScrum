@@ -46,7 +46,7 @@ def jvmArgs = ['-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005',
 
 grails.project.fork = [
         test: [maxMemory: 768, minMemory: 64, debug: false, maxPerm: 256, daemon: true],
-        run : [maxMemory: 1024, minMemory: 512, debug: false, maxPerm: 256, forkReserve: false, jvmArgs: jvmArgs],
+        run : [maxMemory: 2048, minMemory: 512, debug: false, maxPerm: 256, forkReserve: false, jvmArgs: jvmArgs],
         war : [maxMemory: 768, minMemory: 64, debug: false, maxPerm: 256, forkReserve: false]
 ]
 
@@ -94,16 +94,16 @@ grails.project.dependency.resolution = {
     }
     plugins {
         compile ':cache-headers:1.1.7'
-        compile ':asset-pipeline:2.11.0'
-        compile ':less-asset-pipeline:2.11.0'
+        compile ':asset-pipeline:2.14.1.1'
+        compile 'org.icescrum:sass-asset-pipeline:2.14.3'
         compile ':browser-detection:2.9.0'
         runtime ':hibernate4:4.3.10'
         runtime 'org.grails.plugins:database-migration:1.4.1'
         build ':tomcat:7.0.70'
-        compile 'org.icescrum:entry-points:1.4'
+        compile 'org.icescrum:entry-points:1.4.2'
         if (Environment.current == Environment.PRODUCTION) {
             compile 'org.icescrum:icescrum-core:1.7-SNAPSHOT'
-            compile 'org.icescrum:standalone:8.5.30.9'
+            compile 'org.icescrum:standalone:8.5.51.2'
         }
     }
 }

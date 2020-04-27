@@ -140,14 +140,15 @@ controllers.controller('releaseCtrl', ['$scope', '$state', '$rootScope', 'Sessio
             }
         },
         {
-            name: 'is.ui.timeline.menu.delete',
-            visible: function(release) { return $scope.authorizedRelease('delete', release); },
-            action: function(release) { $scope.confirmDelete({callback: $scope.delete, args: [release]}); }
-        },
-        {
             name: 'is.ui.timeline.menu.close',
             visible: function(release) { return $scope.authorizedRelease('close', release); },
             action: function(release) { $scope.confirm({message: $scope.message('is.ui.timeline.menu.close.confirm'), callback: $scope.close, args: [release]}); }
+        },
+        {
+            name: 'is.ui.timeline.menu.delete',
+            deleteMenu: true,
+            visible: function(release) { return $scope.authorizedRelease('delete', release); },
+            action: function(release) { $scope.delete(release); }
         }
     ];
     $scope.validateStartDate = function(startDate) {
@@ -198,11 +199,11 @@ controllers.controller('releaseNewCtrl', ['$scope', '$controller', '$state', 'Da
     var initReleaseDates = function(releases) {
         if (!_.isUndefined(releases)) {
             if (_.isEmpty(releases)) {
-                $scope.startDateOptions.minDate = $scope.project.startDate;
+                $scope.release.startDate = $scope.project.startDate;
             } else {
-                $scope.startDateOptions.minDate = DateService.immutableAddDaysToDate(_.max(_.map($scope.project.releases, 'endDate')), 1);
+                $scope.release.startDate = DateService.immutableAddDaysToDate(_.max(_.map($scope.project.releases, 'endDate')), 1);
+                $scope.startDateOptions.minDate = $scope.release.startDate;
             }
-            $scope.release.startDate = $scope.startDateOptions.minDate;
             $scope.release.endDate = DateService.immutableAddMonthsToDate($scope.release.startDate, 3);
         }
     };
@@ -227,9 +228,9 @@ controllers.controller('releaseNewCtrl', ['$scope', '$controller', '$state', 'Da
     });
 }]);
 
-controllers.controller('releaseDetailsCtrl', ['$scope', '$controller', 'ReleaseStatesByName', 'DateService', 'ReleaseService', 'TimeBoxNotesTemplateService', 'FormService', 'detailsRelease', 'project', function($scope, $controller, ReleaseStatesByName, DateService, ReleaseService, TimeBoxNotesTemplateService, FormService, detailsRelease, project) {
+controllers.controller('releaseDetailsCtrl', ['$scope', '$controller', 'ReleaseStatesByName', 'WorkspaceType', 'DateService', 'ReleaseService', 'TimeBoxNotesTemplateService', 'FormService', 'detailsRelease', 'project', function($scope, $controller, ReleaseStatesByName, WorkspaceType, DateService, ReleaseService, TimeBoxNotesTemplateService, FormService, detailsRelease, project) {
     $controller('releaseCtrl', {$scope: $scope}); // inherit from releaseCtrl
-    $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsRelease, clazz: 'release', project: project});
+    $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsRelease, clazz: 'release', workspace: project, workspaceType: WorkspaceType.PROJECT});
     // Functions
     $scope.update = function(release) {
         ReleaseService.update(release).then(function() {
@@ -240,12 +241,8 @@ controllers.controller('releaseDetailsCtrl', ['$scope', '$controller', 'ReleaseS
     $scope.authorizedTimeboxNotes = TimeBoxNotesTemplateService.authorizedTimeboxNotes;
     // Init
     $scope.$watchCollection('project.releases', function(releases) {
-        if (!_.isUndefined(releases)) {
-            if (_.isEmpty($scope.previousRelease)) {
-                $scope.startDateOptions.minDate = $scope.project.startDate;
-            } else {
-                $scope.startDateOptions.minDate = DateService.immutableAddDaysToDate($scope.previousRelease.endDate, 1);
-            }
+        if (!_.isUndefined(releases) && !_.isEmpty($scope.previousRelease)) {
+            $scope.startDateOptions.minDate = DateService.immutableAddDaysToDate($scope.previousRelease.endDate, 1);
         }
     });
     $scope.$watchCollection('[editableRelease.startDate, editableRelease.endDate]', function(newValues) {
@@ -264,7 +261,7 @@ controllers.controller('releaseDetailsCtrl', ['$scope', '$controller', 'ReleaseS
     $scope.nextRelease = FormService.next($scope.project.releases, $scope.release);
 }]);
 
-controllers.controller('releaseTimelineCtrl', ['$scope', 'DateService', function($scope, DateService) {
+controllers.controller('releaseTimelineCtrl', ['$scope', 'DateService', 'SprintStatesByName', function($scope, DateService, SprintStatesByName) {
     // Functions
     $scope.computeReleaseParts = function(release) {
         var parts = [];
@@ -286,4 +283,5 @@ controllers.controller('releaseTimelineCtrl', ['$scope', 'DateService', function
             $scope.releaseParts = $scope.computeReleaseParts(newRelease);
         }
     }, true);
+    $scope.sprintStatesByName = SprintStatesByName;
 }]);

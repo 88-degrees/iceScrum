@@ -28,8 +28,8 @@
       ng-controller="actorCtrl"
       name="formHolder.actorForm">
     <h4>${message(code: "is.ui.actor.actors")}</h4>
-    <p class="help-block">${message(code: 'is.ui.actor.help')}</p>
-    <div ng-if="authorizedActor('create') || authorizedActor('update')">
+    <p class="form-text">${message(code: 'is.ui.actor.help')}</p>
+    <div class="form-group" ng-if="authorizedActor('create') || authorizedActor('update')">
         <label for="actor.name">${message(code: 'is.actor.name')}</label>
         <div class="input-group">
             <input autofocus
@@ -40,24 +40,23 @@
                    class="form-control"
                    placeholder="{{ actor.id ? '' : message('is.ui.actor.noname') }}"
                    ng-model="actor.name"/>
-            <span class="input-group-btn">
-                <button class="btn btn-default"
+            <span class="input-group-append">
+                <button class="btn btn-primary btn-sm"
                         ng-if="!actor.id"
                         ng-disabled="formHolder.actorForm.$invalid || application.submitting"
                         type="submit"
                         ng-click="save(actor)">
                     ${message(code: 'default.button.create.label')}
                 </button>
-                <button class="btn btn-primary"
+                <button class="btn btn-primary btn-sm"
                         ng-if="actor.id"
                         ng-disabled="!formHolder.actorForm.$dirty || formHolder.actorForm.$invalid || application.submitting"
                         type="submit"
                         ng-click="update(actor)">
                     ${message(code: 'default.button.update.label')}
                 </button>
-                <button class="btn btn-default"
+                <button class="btn btn-secondary btn-sm"
                         ng-if="actor.id"
-                        ng-disabled="!formHolder.actorForm.$dirty"
                         type="submit"
                         ng-click="resetActorForm()">
                     ${message(code: 'is.button.cancel')}
@@ -65,7 +64,7 @@
             </span>
         </div>
     </div>
-    <table ng-if="actors.length" class="table table-striped table-responsive">
+    <table ng-if="actors.length" class="table table-striped">
         <thead>
             <tr>
                 <th></th>
@@ -84,24 +83,21 @@
                 <td ng-if="!actor.stories_count">
                     {{ actor.stories_count }}
                 </td>
-                <td class="btn-toolbar"
-                    ng-if="authorizedActor('update') || authorizedActor('delete', actor)">
-                    <a class="btn btn-primary btn-xs pull-right"
+                <td ng-if="authorizedActor('update') || authorizedActor('delete', actor)">
+                    <a class="btn btn-icon btn-sm float-right"
                        ng-if="authorizedActor('update')"
                        ng-click="edit(actor)">
-                        <i class="fa fa-pencil"></i>
+                        <i class="icon icon-edit"></i>
                     </a>
-                    <a class="btn btn-danger btn-xs pull-right"
+                    <a class="text-danger float-right mr-3"
+                       href
                        ng-if="authorizedActor('delete', actor)"
-                       ng-click="confirmDelete({ callback: delete, args: [actor] })">
+                       delete-button-click="delete(actor)">
                         <i class="fa fa-close"></i>
                     </a>
                 </td>
             </tr>
         </tbody>
     </table>
-    <div class="empty-content" ng-if="actors.length == 0">
-        ${message(code: 'is.ui.actor.placeholder')}
-    </div>
 </form>
 </script>

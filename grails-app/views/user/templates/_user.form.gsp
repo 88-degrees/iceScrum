@@ -30,6 +30,7 @@
                class="form-control"
                name="user.username"
                ng-model="user.username"
+               autocomplete="off"
                ng-remote-validate="/user/available/username"
                ng-remote-validate-code="user.username.unique"
                autofocus/>
@@ -41,6 +42,7 @@
         <input required
                type="text"
                class="form-control"
+               autocomplete="off"
                name="user.firstName"
                ng-model="user.firstName"/>
     </div>
@@ -49,6 +51,7 @@
         <input required
                type="text"
                class="form-control"
+               autocomplete="off"
                name="user.lastName"
                ng-model="user.lastName"/>
     </div>
@@ -60,6 +63,7 @@
                type="email"
                name="user.email"
                class="form-control"
+               autocomplete="off"
                ng-model="user.email"
                ng-remote-validate-code="user.email.unique"
                ng-remote-validate="/user/available/email"/>
@@ -75,7 +79,7 @@
         </ui-select>
     </div>
 </div>
-<div class="row" ng-show="!editableUser.accountExternal">
+<div class="row" ng-if="!editableUser.accountExternal">
     <div class="form-half">
         <label for="user.password">${message(code: 'is.user.password')}</label>
         <input ng-required="!user.id"
@@ -86,7 +90,7 @@
                ng-password-strength>
     </div>
     <div class="form-half">
-        <label for="confirmPassword">${message(code: 'is.dialog.register.confirmPassword')}</label>
+        <label for="confirmPassword">${message(code: 'is.login.register.confirmPassword')}</label>
         <input name="confirmPassword"
                type="password"
                class="form-control"
@@ -95,12 +99,21 @@
     </div>
 </div>
 <div class="row">
-    <div class="col-md-12 form-group">
+    <div class="form-half">
         <label for="user.preferences.activity">${message(code: 'is.user.preferences.activity')}</label>
         <input name="user.preferences.activity"
                type="text"
                class="form-control"
                ng-model="user.preferences.activity">
+    </div>
+    <div class="form-half">
+        <label for="needsEmailValidation">
+            <input type="checkbox"
+                   name="user.preferences.needsEmailValidation"
+                   id="needsEmailValidation"
+                   ng-model="user.preferences.needsEmailValidation">
+            Needs email validation (experimental)
+        </label>
     </div>
 </div>
 </script>

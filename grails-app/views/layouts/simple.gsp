@@ -35,27 +35,25 @@
         <asset:link rel="apple-touch-icon" href="iOS/icon-ipad-retina.png" sizes="152x152"/>
         <!-- end iOS web app-->
         <asset:link rel="shortcut icon" href="favicon.ico" type="image/x-icon"/>
-        <asset:stylesheet href="application.css"/>
+        <asset:javascript src="preload-header.js"/>
+        <script type="text/javascript">
+            isSettings.darkMode = '${asset.stylesheet(href:"application-dark.css", id:"main-css", bundle:"true")}';
+            isSettings.lightMode = '${asset.stylesheet(href:"application.css", id:"main-css", bundle:"true")}';
+            darkOrLightMode('light');
+        </script>
+        <g:include controller="scrumOS" action="isSettings" params="${params}"/>
         <g:layoutHead/>
     </head>
     <body ng-controller="applicationCtrl"
           ng-class="{ 'application-ready':application != null, 'loading': (application.loading || application.loadingText), 'splash-screen': (application.loadingPercent != 100 || application.loadingText)  }"
-          class="simple-template splash-screen loading">
-        <div id="application-loading">
-            <svg class="logo" viewBox="0 0 150 150">
-                <g:render template="/scrumOS/logo"/>
-                <circle fill="none" cx="80px" cy="80px" r="63" style="stroke: #eee; stroke-width: 10px;"></circle>
-                <path fill="none" transform="" circle-coords="80,80,63,0" circle="application.loadingPercent"
-                      class="loading-circle"></path>
-            </svg>
-            <div class="loading-text text-center">{{ application.loadingText }}</div>
-        </div>
-        <div class="container-fluid">
+          class="simple-template splash-screen loading ${bodyClasses}">
+        <g:include view="layouts/_splashScreen.gsp"/>
+        <div class="is-container-fluid">
             <g:layoutBody/>
         </div>
-        <g:include controller="scrumOS" action="isSettings" params="${params}"/>
-        <asset:javascript src="application.js"/>
+        <asset:javascript src="preload-footer.js"/>
         <g:render template="/scrumOS/templates"/>
+        <asset:javascript src="application.js"/>
         <entry:point id="icescrum-footer-simple" model="[workspace: workspace, user: user]"/>
     </body>
 </html>

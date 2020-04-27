@@ -21,24 +21,24 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="release.new.html">
-<div class="panel panel-light">
-    <div class="panel-heading">
-        <h3 class="panel-title row">
-            <div class="left-title">
-                <i class="fa fa-calendar"></i> <span class="item-name" title="${message(code: "todo.is.ui.release.new")}">${message(code: "todo.is.ui.release.new")}</span>
+<div class="card">
+    <div class="details-header">
+        <details-layout-buttons/>
+    </div>
+    <div class="card-header">
+        <div class="card-title">
+            <div class="details-title">
+                <span class="item-name" title="${message(code: "todo.is.ui.release.new")}">${message(code: "todo.is.ui.release.new")}</span>
             </div>
-            <div class="right-title">
-                <details-layout-buttons ng-if="!isModal"/>
-            </div>
-        </h3>
+        </div>
+        <div class="form-text">${message(code: 'is.ui.release.help')}</div>
     </div>
     <div class="details-no-tab">
-        <div class="panel-body">
-            <div class="help-block">${message(code: 'is.ui.release.help')}</div>
-            <form ng-submit="save(release, false)"
-                  name='formHolder.releaseForm'
-                  show-validation
-                  novalidate>
+        <form ng-submit="save(release, false)"
+              name='formHolder.releaseForm'
+              show-validation
+              novalidate>
+            <div class="card-body">
                 <div class="form-group">
                     <label for="name">${message(code: 'is.release.name')}</label>
                     <input required
@@ -47,15 +47,16 @@
                            ng-model="release.name"
                            type="text"
                            class="form-control"
+                           autocomplete="off"
                            placeholder="${message(code: 'is.ui.release.noname')}"/>
                 </div>
-                <div class="clearfix no-padding">
+                <div class="row is-form-row">
                     <div class="form-half">
                         <label for="release.startDate">${message(code: 'is.release.startDate')}</label>
                         <div class="input-group">
-                            <span class="input-group-btn">
+                            <span class="input-group-prepend">
                                 <button type="button"
-                                        class="btn btn-default"
+                                        class="btn btn-secondary btn-sm"
                                         ng-click="openDatepicker($event, startDateOptions)">
                                     <i class="fa fa-calendar"></i>
                                 </button>
@@ -87,9 +88,9 @@
                                    uib-datepicker-popup
                                    datepicker-options="endDateOptions"
                                    is-open="endDateOptions.opened"/>
-                            <span class="input-group-btn">
+                            <span class="input-group-append">
                                 <button type="button"
-                                        class="btn btn-default"
+                                        class="btn btn-secondary btn-sm"
                                         ng-click="openDatepicker($event, endDateOptions)">
                                     <i class="fa fa-calendar"></i>
                                 </button>
@@ -97,7 +98,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="btn-toolbar pull-right">
+            </div>
+            <div class="card-footer">
+                <div class="btn-toolbar">
                     <button class="btn btn-primary"
                             ng-disabled="formHolder.releaseForm.$invalid || application.submitting"
                             defer-tooltip="${message(code: 'todo.is.ui.create.and.continue')} (SHIFT+RETURN)"
@@ -114,8 +117,8 @@
                         ${message(code: 'default.button.create.label')}
                     </button>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 </div>
 </script>

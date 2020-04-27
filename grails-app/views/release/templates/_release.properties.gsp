@@ -25,8 +25,14 @@
       ng-class="{'form-editable': formEditable(), 'form-editing': formHolder.editing }"
       show-validation
       novalidate>
-    <div class="panel-body">
-        <div class="clearfix no-padding">
+    <div class="card-body">
+        <div class="drop-zone d-flex align-items-center justify-content-center">
+            <div>
+                <asset:image src="application/upload.svg" width="70" height="70"/>
+                <span class="drop-text">${message(code: 'todo.is.ui.drop.here')}</span>
+            </div>
+        </div>
+        <div class="row is-form-row">
             <div class="form-3-quarters">
                 <label for="name">${message(code: 'is.release.name')}</label>
                 <input required
@@ -34,6 +40,7 @@
                        ng-focus="editForm(true)"
                        ng-disabled="!formEditable()"
                        ng-model="editableRelease.name"
+                       autocomplete="off"
                        type="text"
                        class="form-control"
                        placeholder="${message(code: 'is.ui.release.noname')}"/>
@@ -45,20 +52,21 @@
                        ng-focus="editForm(true)"
                        ng-disabled="!formEditable()"
                        ng-model="editableRelease.firstSprintIndex"
+                       autocomplete="off"
                        type="number"
                        class="form-control"/>
             </div>
         </div>
-        <div class="clearfix no-padding">
+        <div class="row is-form-row">
             <div class="form-half">
                 <label for="release.startDate">${message(code: 'is.release.startDate')}</label>
-                <div ng-class="{'input-group': authorizedRelease('updateDates', release)}">
+                <div ng-class="{'input-group': authorizedRelease('update', release)}">
                     <input type="text"
                            class="form-control"
                            required
                            ng-focus="editForm(true)"
                            name="startDate"
-                           ng-disabled="!authorizedRelease('updateDates', release)"
+                           ng-disabled="!authorizedRelease('update', release)"
                            ng-model="editableRelease.startDate"
                            ng-model-options="{timezone: 'utc'}"
                            custom-validate="validateStartDate"
@@ -66,10 +74,10 @@
                            uib-datepicker-popup
                            datepicker-options="startDateOptions"
                            is-open="startDateOptions.opened"/>
-                    <span class="input-group-btn"
-                          ng-if="authorizedRelease('updateDates', release)">
+                    <span class="input-group-append"
+                          ng-if="authorizedRelease('update', release)">
                         <button type="button"
-                                class="btn btn-default"
+                                class="btn btn-secondary btn-sm"
                                 ng-focus="editForm(true)"
                                 ng-click="openDatepicker($event, startDateOptions)">
                             <i class="fa fa-calendar"></i>
@@ -79,13 +87,13 @@
             </div>
             <div class="form-half">
                 <label for="release.endDate">${message(code: 'is.release.endDate')}</label>
-                <div ng-class="{'input-group': authorizedRelease('updateDates', release)}">
+                <div ng-class="{'input-group': authorizedRelease('update', release)}">
                     <input type="text"
                            class="form-control"
                            required
                            ng-focus="editForm(true)"
                            name="endDate"
-                           ng-disabled="!authorizedRelease('updateDates', release)"
+                           ng-disabled="!authorizedRelease('update', release)"
                            ng-model="editableRelease.endDate"
                            ng-model-options="{timezone: 'utc'}"
                            custom-validate="validateEndDate"
@@ -93,10 +101,10 @@
                            uib-datepicker-popup
                            datepicker-options="endDateOptions"
                            is-open="endDateOptions.opened"/>
-                    <span class="input-group-btn"
-                          ng-if="authorizedRelease('updateDates', release)">
+                    <span class="input-group-append"
+                          ng-if="authorizedRelease('update', release)">
                         <button type="button"
-                                class="btn btn-default"
+                                class="btn btn-secondary btn-sm"
                                 ng-focus="editForm(true)"
                                 ng-click="openDatepicker($event, endDateOptions)">
                             <i class="fa fa-calendar"></i>
@@ -106,7 +114,7 @@
             </div>
         </div>
         <div ng-if="project.portfolio && (formHolder.releaseForm.startDate.$dirty || formHolder.releaseForm.endDate.$dirty)"
-             class="help-block bg-warning spaced-help-block">
+             class="form-text alert bg-warning spaced-form-text mb-3">
             ${message(code: 'is.ui.portfolio.warning.dates')}
         </div>
         <div class="chart"
@@ -114,27 +122,31 @@
              ng-init="openChart('release', 'burndown', release)">
             <div uib-dropdown
                  ng-controller="projectChartCtrl"
-                 class="pull-right">
+                 class="float-right">
                 <div class="btn-group visible-on-hover">
-                    <button class="btn btn-default btn-sm"
+                    <button class="btn btn-secondary btn-sm"
                             ng-click="openChartInModal(chartParams)"
                             type="button">
                         <i class="fa fa-search-plus"></i>
                     </button>
-                    <button class="btn btn-default btn-sm"
+                    <button class="btn btn-secondary btn-sm"
                             ng-click="saveChart(chartParams)"
                             type="button">
                         <i class="fa fa-floppy-o"></i>
                     </button>
                 </div>
-                <button class="btn btn-default btn-sm"
+                <button class="btn btn-secondary btn-sm"
                         type="button"
                         uib-dropdown-toggle>
-                    <span defer-tooltip="${message(code: 'todo.is.ui.charts')}"><i class="fa fa-bar-chart"></i> <i class="fa fa-caret-down"></i></span>
+                    <span defer-tooltip="${message(code: 'todo.is.ui.charts')}"><i class="fa fa-bar-chart"></i></span>
                 </button>
-                <ul uib-dropdown-menu>
-                    <li ng-repeat="chart in projectCharts.release"><a href ng-click="openChart('release', chart.id, release)">{{ message(chart.name) }}</a></li>
-                </ul>
+                <div uib-dropdown-menu class="dropdown-menu-right">
+                    <a href
+                       class="dropdown-item"
+                       ng-class="{'active': chart.id == chartParams.chartName}"
+                       ng-repeat="chart in projectCharts.release"
+                       ng-click="openChart('release', chart.id, release)">{{ message(chart.name) }}</a>
+                </div>
             </div>
             <nvd3 options="options | merge: {chart:{height: 200}, title:{enable: false}}" data="data"></nvd3>
         </div>
@@ -150,45 +162,37 @@
                       ng-show="showVisionTextarea"
                       ng-blur="showVisionTextarea = false"
                       placeholder="${message(code: 'todo.is.ui.release.novision')}"></textarea>
-            <div class="markitup-preview"
+            <div class="markitup-preview form-control"
                  ng-disabled="!formEditable()"
                  ng-show="!showVisionTextarea"
-                 ng-click="showVisionTextarea = formEditable()"
                  ng-focus="editForm(true); showVisionTextarea = formEditable()"
                  ng-class="{'placeholder': !editableRelease.vision_html}"
                  tabindex="0"
-                 ng-bind-html="editableRelease.vision_html ? editableRelease.vision_html : '<p>${message(code: 'todo.is.ui.release.novision')}</p>'"></div>
+                 bind-html-scope="markitupCheckboxOptions('vision')"
+                 bind-html-compile="editableRelease.vision_html ? editableRelease.vision_html : '<p>${message(code: 'todo.is.ui.release.novision')}</p>'"></div>
         </div>
-        <div class="form-group">
-            <label>${message(code: 'is.backlogelement.attachment')} {{ release.attachments_count > 0 ? '(' + release.attachments_count + ')' : '' }}</label>
-            <div ng-if="authorizedRelease('upload', release)"
-                 ng-controller="attachmentNestedCtrl">
-                <button type="button"
-                        class="btn btn-default"
-                        flow-btn>
-                    <i class="fa fa-upload"></i> ${message(code: 'todo.is.ui.new.upload')}
-                </button>
-                <entry:point id="attachment-add-buttons"/>
+        <label>${message(code: 'is.backlogelement.attachment')} {{ release.attachments_count > 0 ? '(' + release.attachments_count + ')' : '' }}</label>
+        <div class="attachments attachments-bordered">
+            <div ng-if="authorizedRelease('upload', release)" ng-controller="attachmentNestedCtrl" class="upload-and-apps row">
+                <div class="upload-file col-6">
+                    <span class="attachment-icon"></span><span flow-btn class="link">${message(code: 'todo.is.ui.attachment.add')}</span>&nbsp;<span class="d-none d-md-inline">${message(code: 'todo.is.ui.attachment.drop')}</span>
+                </div>
+                <div class="upload-apps col-6">
+                    <g:include view="attachment/_buttons.gsp"/>
+                </div>
             </div>
-            <div class="form-control-static" ng-include="'attachment.list.html'">
-            </div>
+            <div ng-include="'attachment.list.html'"></div>
         </div>
     </div>
-    <div class="panel-footer" ng-if="isModal || formHolder.editing">
+    <div class="card-footer" ng-if="isModal || formHolder.editing">
         <div class="btn-toolbar" ng-class="[{ 'text-right' : isModal }]">
-            <button class="btn btn-primary"
-                    ng-if="formHolder.editing && (isLatest() || application.submitting)"
-                    ng-disabled="!isDirty() || formHolder.releaseForm.$invalid || application.submitting"
-                    type="submit">
-                ${message(code: 'default.button.update.label')}
+            <button class="btn btn-secondary"
+                    type="button"
+                    ng-if="isModal && !isDirty()"
+                    ng-click="$close()">
+                ${message(code: 'is.button.close')}
             </button>
-            <button class="btn btn-danger"
-                    ng-if="formHolder.editing && !isLatest() && !application.submitting"
-                    ng-disabled="!isDirty() || formHolder.releaseForm.$invalid"
-                    type="submit">
-                ${message(code: 'default.button.override.label')}
-            </button>
-            <button class="btn btn-default"
+            <button class="btn btn-secondary"
                     type="button"
                     ng-if="(!isModal && formHolder.editing) || (isModal && isDirty())"
                     ng-click="editForm(false)">
@@ -200,11 +204,17 @@
                     ng-click="resetReleaseForm()">
                 <i class="fa fa-warning"></i> ${message(code: 'default.button.refresh.label')}
             </button>
-            <button class="btn btn-default"
-                    type="button"
-                    ng-if="isModal && !isDirty()"
-                    ng-click="$close()">
-                ${message(code: 'is.button.close')}
+            <button class="btn btn-danger"
+                    ng-if="formHolder.editing && !isLatest() && !application.submitting"
+                    ng-disabled="!isDirty() || formHolder.releaseForm.$invalid"
+                    type="submit">
+                ${message(code: 'default.button.override.label')}
+            </button>
+            <button class="btn btn-primary"
+                    ng-if="formHolder.editing && (isLatest() || application.submitting)"
+                    ng-disabled="!isDirty() || formHolder.releaseForm.$invalid || application.submitting"
+                    type="submit">
+                ${message(code: 'default.button.update.label')}
             </button>
         </div>
     </div>

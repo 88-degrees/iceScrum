@@ -29,11 +29,12 @@ controllers.controller('userCtrl', ['$scope', '$timeout', 'UserService', 'User',
         });
         user.preferences.emailsSettings = newEmailsSettings;
         var languageChanged = Session.user.preferences.language != user.preferences.language;
+        var colorSchemeChanged = Session.user.preferences.colorScheme != user.preferences.colorScheme;
         UserService.update(user).then(function(updatedUser) {
             if ($scope.$close) {
                 $scope.$close(); // Close auth modal if present
             }
-            if (languageChanged) {
+            if (languageChanged || colorSchemeChanged) {
                 $scope.notifySuccess('todo.is.ui.profile.updated.refreshing');
                 $timeout(function() {
                     document.location.reload(true);
@@ -42,13 +43,14 @@ controllers.controller('userCtrl', ['$scope', '$timeout', 'UserService', 'User',
                 $scope.notifySuccess('todo.is.ui.profile.updated');
             }
             angular.extend(Session.user, updatedUser);
-            Session.user.preferences.emailsSettings = newEmailsSettings; // Need manual setting because it is not returned by the JSON marshaller for performance and security reasons
+            angular.extend(Session.user.preferences, user.preferences); // Need manual setting because it is not returned by the JSON marshaller for performance and security reasons
+            Session.user.preferences.emailsSettings = newEmailsSettings;
         });
     };
     $scope.refreshAvatar = function(user) {
         var url;
         var avatar = user.avatar;
-        var avatarImg = angular.element('#user-avatar').find('img');
+        var avatarImg = angular.element('.user-avatars').find('img');
         if (avatar == 'gravatar') {
             url = user.email ? "https://secure.gravatar.com/avatar/" + $.md5(user.email) : null;
         } else if (avatar == 'custom') {
@@ -72,6 +74,12 @@ controllers.controller('userCtrl', ['$scope', '$timeout', 'UserService', 'User',
         $scope.languages = languages;
         $scope.languageKeys = _.keys(languages);
     });
+    $scope.colorSchemes = {
+        'dark': $scope.message('is.ui.colorScheme.dark'),
+        'light': $scope.message('is.ui.colorScheme.light'),
+        'null': $scope.message('is.ui.colorScheme.default')
+    };
+    $scope.colorSchemeKeys = _.keys($scope.colorSchemes);
 }]);
 
 controllers.controller('userInvitationCtrl', ['$scope', '$state', '$timeout', '$location', '$filter', 'UserService', 'Session', function($scope, $state, $timeout, $location, $filter, UserService, Session) {
@@ -81,19 +89,10 @@ controllers.controller('userInvitationCtrl', ['$scope', '$state', '$timeout', '$
             document.location = $scope.serverUrl;
         })
     };
-    $scope.logIn = function() {
-        $state.params.redirectTo = window.location.href + '?accept=true';
-        $scope.$close(true);
-        $scope.showAuthModal();
-    };
-    $scope.register = function() {
-        var user = $filter('userNamesFromEmail')($scope.invitedEmailAddress);
-        user.token = $scope.token;
-        $scope.$close(true);
-        $scope.showRegisterModal(user);
-    };
     // Init
-    $scope.token = $state.params.token;
+    if (!$scope.token) {
+        $scope.token = $state.params.token;
+    }
     if (Session.authenticated()) {
         $scope.currentEmailAddress = Session.user.email;
     }
@@ -107,7 +106,7 @@ controllers.controller('userInvitationCtrl', ['$scope', '$state', '$timeout', '$
             })
         } else {
             $scope.invitationEntries = _.map(invitations, function(invitation) {
-                var type = invitation.type.name;
+                var type = invitation.type;
                 var object;
                 if (type === 'PROJECT') {
                     object = invitation.project;
@@ -122,6 +121,9 @@ controllers.controller('userInvitationCtrl', ['$scope', '$state', '$timeout', '$
                 };
             });
             $scope.invitedEmailAddress = _.first(invitations).email;
+            if ($scope.user) {
+                _.merge($scope.user, $filter('userNamesFromEmail')($scope.invitedEmailAddress));
+            }
         }
     }, function() {
         $timeout($scope.$close, 3000);

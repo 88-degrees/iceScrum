@@ -1,5 +1,5 @@
 %{--
-- Copyright (c) 2017 Kagilum.
+- Copyright (c) 2019 Kagilum.
 -
 - This file is part of iceScrum.
 -
@@ -22,39 +22,29 @@
 --}%
 
 <script type="text/ng-template" id="app.list.html">
-<div class="row">
-    <div class="col-md-offset-1 col-md-10 text-center">
-        <div class="input-group">
-            <input type="text"
-                   ng-model="holder.appSearch"
-                   name="app-search-input"
-                   class="form-control"
-                   placeholder="${message(code: 'todo.is.ui.search.action')}">
-            <span class="input-group-btn">
-                <button class="btn btn-default"
-                        type="button"
-                        ng-click="searchApp('')">
-                    <i class="fa" ng-class="holder.appSearch ? 'fa-times' : 'fa-search'"></i>
-                </button>
-            </span>
-        </div>
-    </div>
+<div class="modal-search text-center">
+    <input type="text"
+           ng-model="holder.appSearch"
+           class="form-control search-input"
+           placeholder="${message(code: 'todo.is.ui.search.action')}">
 </div>
-<div class="row app-list">
-    <div class="col-xs-6 col-md-3 text-center" ng-repeat="currentAppDefinition in filteredApps = (appDefinitions | filter:appDefinitionFilter | orderBy: appsOrder)">
-        <div ng-click="openAppDefinition(currentAppDefinition)" class="app-logo" defer-tooltip="{{:: currentAppDefinition.baseline }}">
-            <div class="ribbon">
-                <div class="new-app" ng-if="currentAppDefinition.isNew && !isEnabledApp(currentAppDefinition)">${message(code: 'is.ui.apps.new')}</div>
-                <div class="enabled-app" ng-if="isEnabledApp(currentAppDefinition)">${message(code: 'is.ui.apps.enabled')}</div>
-            </div>
+<entry:point id="app-list-before-list"></entry:point>
+<div class="app-list text-center">
+    <div class="align-self-start" ng-repeat="currentAppDefinition in filteredApps = (appDefinitions | filter:appDefinitionFilter | orderBy: appsOrder)">
+        <div ng-click="openAppDefinition(currentAppDefinition)"
+             class="app-logo app-{{:: currentAppDefinition.id}}">
+            <div class="app-enabled" ng-if="isEnabledApp(currentAppDefinition)" title="${message(code: 'is.ui.apps.enabled')}"></div>
+            <div class="app-new" ng-if="currentAppDefinition.isNew && !isEnabledApp(currentAppDefinition)">${message(code: 'is.ui.apps.new')}</div>
             <img ng-src="{{:: currentAppDefinition.logo }}"
+                 class="img-fluid"
                  alt="{{:: currentAppDefinition.name }}">
+            <div ng-click="openAppDefinition(currentAppDefinition)"
+                 class="text-truncate app-name">
+                {{:: currentAppDefinition.name }}
+            </div>
         </div>
-        <h5 ng-click="openAppDefinition(currentAppDefinition)" class="text-ellipsis">
-            {{:: currentAppDefinition.name }}
-        </h5>
     </div>
-    <div class="text-center more-results" ng-hide="filteredApps.length">
+    <div class="my-5 mx-auto" ng-if="appDefinitions.length > 0 && filteredApps.length == 0">
         <a href="${message(code: 'is.ui.apps.store.query')}{{ holder.appSearch }}">${message(code: 'is.ui.apps.store.search')}</a>
     </div>
 </div>

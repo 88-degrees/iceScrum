@@ -21,9 +21,9 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="form.projects.portfolio.html">
-<p class="help-block">${message(code: 'is.ui.portfolio.help.projects')}</p>
+<p class="form-text">${message(code: 'is.ui.portfolio.help.projects')}</p>
 <label for="project.name">${message(code: 'todo.is.ui.project.create.or.select')}</label>
-<div class="input-group" style="margin-bottom:15px;" ng-if="portfolio.projects.length < 10">
+<div class="input-group" style="margin-bottom:15px;" ng-if="portfolio.projects.length < 20">
     <input autocomplete="off"
            type="text"
            autofocus
@@ -35,13 +35,15 @@
            typeahead-on-select="selectProject($item); "
            typeahead-template-url="select.or.create.project.html"
            ng-model="formHolder.projectSelection"
-           ng-disabled="portfolio.projects.length >= 10">
-    <span class="input-group-addon"><i class="fa fa-search"></i></span>
+           ng-disabled="portfolio.projects.length >= 20">
+    <span class="input-group-append">
+        <span class="input-group-text"><i class="fa fa-search"></i></span>
+    </span>
 </div>
-<div class="alert alert-warning" role="alert" style="margin-bottom: 15px;" ng-if="portfolio.projects.length >= 10">
+<div class="form-text alert bg-warning mb-3" role="alert" ng-if="portfolio.projects.length >= 20">
     ${message(code: 'is.ui.portfolio.limit.projects')}
 </div>
-<table class="table table-striped table-bordered" ng-if="portfolio.projects.length > 0">
+<table class="table table-striped" ng-if="portfolio.projects.length > 0">
     <thead>
         <th>${message(code: 'is.project.name')}</th>
         <th>${message(code: 'is.project.startDate')}</th>
@@ -55,26 +57,26 @@
             <td>
                 <i ng-class="['fa', {'fa-eye text-danger': !project.preferences.hidden, 'fa-eye-splash text-success': project.preferences.hidden }]"></i>
                 {{:: project.name }}
-                <div class="bg-success"
+                <div class="bg-success small ml-1"
                      ng-if="project.new"
-                     style="display: inline-block;padding-left: 2px;padding-right: 2px;font-weight:bold;">${message(code: 'is.ui.new')}</div>
+                     style="display: inline-block; color: #111111; padding-left: 2px;padding-right: 2px;font-weight:bold;">${message(code: 'is.ui.new')}</div>
             </td>
             <td>{{:: project.startDate | dayShort }}</td>
             <td>{{:: project.preferences.estimatedSprintsDuration }} ${g.message(code: 'is.dialog.wizard.project.days').toLowerCase()}</td>
             <td>{{:: project.productOwners | displayNames }}</td>
             <td>{{:: project.team.name }} ({{:: (project.team.scrumMasters.length + project.team.members.length) }})</td>
             <td>
-                <button class="btn btn-default btn-sm btn-model"
-                        ng-model="foo" %{-- Hack to make form dirty --}%
-                        ng-click="removeProject(project)"
-                        type="button">
+                <a class="text-danger btn-model"
+                   href
+                   ng-model="foo" %{-- Hack to make form dirty --}%
+                   ng-click="removeProject(project)">
                     <i class="fa fa-times"></i>
-                </button>
+                </a>
             </td>
         </tr>
     </tbody>
 </table>
-<div class="alert alert-{{ synchronizationHolder.status }}" role="alert" style="margin-bottom: 15px;" ng-if="synchronizationHolder.text">
+<div class="alert bg-{{ synchronizationHolder.status }} mb-3" role="alert" ng-if="synchronizationHolder.text">
     {{ synchronizationHolder.text }}
 </div>
 </script>

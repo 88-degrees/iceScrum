@@ -21,33 +21,34 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="backlog.details.html">
-<div class="panel panel-light">
-    <div class="panel-heading">
-        <h3 class="panel-title row">
-            <div class="left-title">
-                <i class="fa fa-inbox"></i> <span class="item-name" title="{{ backlog | i18nName }}">{{ backlog | i18nName }}</span>
+<div class="card">
+    <div class="details-header">
+        <details-layout-buttons/>
+    </div>
+    <div class="card-header">
+        <div class="card-title">
+            <div class="details-title">
+                <span class="item-name" title="{{ backlog | i18nName }}">{{ backlog | i18nName }}</span>
                 <i class="fa fa-share-alt"
                    ng-if="backlog.shared && !backlog.isDefault"
                    defer-tooltip="${message(code: 'is.ui.backlog.share')}"></i>
             </div>
-            <div class="right-title">
+            <div class="btn-toolbar">
                 <entry:point id="backlog-details-right-title"/>
-                <span ng-if="backlog.owner" defer-tooltip="${message(code: 'is.story.creator')} {{ backlog.owner | userFullName }}">
-                    <img ng-src="{{ backlog.owner | userAvatar }}" alt="{{ backlog.owner | userFullName }}" class="{{ backlog.owner | userColorRoles }}" height="30px"/>
-                </span>
-                <details-layout-buttons ng-if="!isModal"/>
             </div>
-        </h3>
-        <div class="col-md-6">
-            <div ng-if="backlog.isDefault" ng-bind-html="backlog.notes_html"></div>
-            <div ng-include="'story.table.multiple.sum.html'"></div>
         </div>
-        <entry:point id="backlog-details-chart-before"/>
-        <div class="col-md-6 backlogCharts chart" ng-controller="backlogChartCtrl">
-            <nvd3 options="options" data="data" config="{refreshDataOnly: false}"></nvd3>
+        <div class="row">
+            <div class="col-md-6">
+                <div ng-if="backlog.isDefault" ng-bind-html="backlog.notes_html"></div>
+                <div ng-include="'story.table.multiple.sum.html'"></div>
+            </div>
+            <div class="col-md-6 chart" ng-controller="backlogChartCtrl">
+                <entry:point id="backlog-details-chart-before"/>
+                <nvd3 options="options" data="data" config="{refreshDataOnly: false}"></nvd3>
+            </div>
         </div>
     </div>
-    <ul class="nav nav-tabs nav-tabs-is nav-justified disable-active-link" ng-if="$state.current.data.displayTabs">
+    <ul class="nav nav-tabs nav-justified disable-active-link" ng-if="$state.current.data.displayTabs">
         <entry:point id="backlog-details-tab-button"/>
     </ul>
     <div ui-view="details-tab">

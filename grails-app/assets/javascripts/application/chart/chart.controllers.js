@@ -238,20 +238,19 @@ extensibleController('chartCtrl', ['$scope', '$element', '$filter', '$uibModal',
             });
         });
     };
-    $scope.openChartAndSaveSetting = function(itemType, chartName, item, workspace, windowName, settingName) {
+    $scope.openChartAndSaveSetting = function(itemType, chartName, item, workspace, windowName, settingName, options) {
         if (Session.authenticated()) {
             WindowService.get(windowName, workspace).then(function(window) {
                 window.settings[settingName] = {itemType: itemType, chartName: chartName};
                 return WindowService.update(window).$promise;
             });
         }
-        $scope.openChart(itemType, chartName, item);
+        $scope.openChart(itemType, chartName, item, options);
     };
-    $scope.processSaveChart = function() {
-        var title = $element.find('.title.h4');
-        saveChartAsPng($element.find('svg')[0], {}, title[0], function(imageBase64) {
+    $scope.processSaveChart = function(title) {
+        saveChartAsPng($element.find('svg')[0], {}, title, function(imageBase64) {
             // Server side "attachment" content type is needed because the a.download HTML5 feature is not supported in crappy browsers (safari & co).
-            jQuery.download($scope.serverUrl + '/saveImage', {'image': imageBase64, 'title': title.text()});
+            jQuery.download($scope.serverUrl + '/saveImage', {'image': imageBase64, 'title': title});
         });
     };
 
@@ -263,7 +262,12 @@ extensibleController('chartCtrl', ['$scope', '$element', '$filter', '$uibModal',
                 $element = angular.element('.modal-wide');
                 $controller('chartCtrl', {$scope: $scope, $element: $element});
                 $scope.defaultOptions.chart.height = ($window.innerHeight * 75 / 100);
-                $scope.openChart(chartParams.itemType, chartParams.chartName, chartParams.item);
+                $scope.chartTitle = $scope.message('is.ui.project.chart.title');
+                $scope.openChart(chartParams.itemType, chartParams.chartName, chartParams.item, {title: {enable: false}}).then(function(data) {
+                    if (data.options.title.text) {
+                        $scope.chartTitle = data.options.title.text;
+                    }
+                });
                 $scope.submit = function() {
                     $scope.$close(true);
                 };
@@ -284,16 +288,19 @@ extensibleController('chartCtrl', ['$scope', '$element', '$filter', '$uibModal',
             size: 'chart invisible',
             controller: ["$scope", "$controller", "$window", "$timeout", function($scope, $controller, $window, $timeout) {
                 $timeout(function() {
-                    angular.element('body').addClass('process-chart');
-                    $element = angular.element('.modal-chart');
-                    $controller('chartCtrl', {$scope: $scope, $element: $element});
+                    $controller('chartCtrl', {$scope: $scope, $element: angular.element('.modal-chart')});
                     $scope.defaultOptions.chart.width = 1600;
                     $scope.defaultOptions.chart.height = 800;
-                    $scope.openChart(chartParams.itemType, chartParams.chartName, chartParams.item);
-                    $timeout(function() {
-                        $scope.processSaveChart();
-                        $scope.$close(true);
-                    }, 500);
+                    $scope.openChart(chartParams.itemType, chartParams.chartName, chartParams.item).then(function(data) {
+                        var title = '';
+                        if (data.options.title.text) {
+                            title = data.options.title.text;
+                        }
+                        $timeout(function() {
+                            $scope.processSaveChart(title);
+                            $scope.$close(true)
+                        }, 500);
+                    });
                 }, 500);
             }]
         });
@@ -315,7 +322,7 @@ controllers.controller('chartWidgetCtrl', ['$scope', 'WidgetService', 'FormServi
         var chartWidgetOptions = {
             chart: {
                 height: function($element) {
-                    return $element ? $element.parents('.panel-body')[0].getBoundingClientRect().height : 0;
+                    return $element ? $element.parents('.card-body')[0].getBoundingClientRect().height : 0;
                 }
             },
             title: {

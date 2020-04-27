@@ -22,10 +22,34 @@
  *
  */
 services.factory('Attachment', ['Resource', function($resource) {
-    return $resource('/p/:projectId/attachment/:type/:typeId/:id', {typeId: '@typeId', type: '@type'});
+    return $resource('/:workspaceType/:workspaceId/attachment/:type/:typeId/:id', {typeId: '@typeId', type: '@type'});
 }]);
 
-services.service("AttachmentService", ['Attachment', 'Session', '$q', function(Attachment, Session, $q) {
+services.service("AttachmentService", ['Attachment', 'Session', '$q', '$injector', 'PushService', 'IceScrumEventType', function(Attachment, Session, $q, $injector, PushService, IceScrumEventType) {
+    var self = this;
+    this.getAttachmentable = function(attachment) {
+        return $injector.get(attachment.attachmentable.class + 'Service').get(attachment.attachmentable.id);
+    };
+    PushService.registerListener('attachment', IceScrumEventType.CREATE, function(attachment) {
+        self._addToAttachmentable(attachment)
+    });
+    PushService.registerListener('attachment', IceScrumEventType.UPDATE, function(attachment) {
+        self.getAttachmentable(attachment).then(function(attachmentable) {
+            var existingAttachment = _.find(attachmentable.attachments, {id: attachment.id});
+            _.merge(existingAttachment, attachment);
+        });
+    });
+    PushService.registerListener('attachment', IceScrumEventType.DELETE, function(attachment) {
+        self.getAttachmentable(attachment).then(function(attachmentable) {
+            _.remove(attachmentable.attachments, {id: attachment.id});
+            attachmentable.attachments_count = attachmentable.attachments.length;
+        });
+    });
+    this._addToAttachmentable = function(attachment) {
+        self.getAttachmentable(attachment).then(function(attachmentable) {
+            self.addToAttachmentable(attachment, attachmentable);
+        });
+    };
     this.addToAttachmentable = function(attachment, attachmentable) {
         if (!_.find(attachmentable.attachments, {id: attachment.id})) {
             attachment.type = attachmentable.class.toLowerCase();
@@ -35,14 +59,14 @@ services.service("AttachmentService", ['Attachment', 'Session', '$q', function(A
             attachmentable.attachments_count = attachmentable.attachments.length;
         }
     };
-    this.update = function(attachment, attachmentable, projectId) {
-        return Attachment.update({type: attachmentable.class.toLowerCase(), typeId: attachmentable.id, id: attachment.id, projectId: projectId}, attachment, function(returnedAttachment) {
+    this.update = function(attachment, attachmentable, workspaceId, workspaceType) {
+        return Attachment.update({type: attachmentable.class.toLowerCase(), typeId: attachmentable.id, id: attachment.id, workspaceId: workspaceId, workspaceType: workspaceType}, attachment, function(returnedAttachment) {
             var existingAttachment = _.find(attachmentable.attachments, {id: returnedAttachment.id});
             _.merge(existingAttachment, returnedAttachment);
         }).$promise;
     };
-    this['delete'] = function(attachment, attachmentable, projectId) {
-        return Attachment.delete({type: attachmentable.class.toLowerCase(), typeId: attachmentable.id, id: attachment.id, projectId: projectId}, function() {
+    this['delete'] = function(attachment, attachmentable, workspaceId, workspaceType) {
+        return Attachment.delete({type: attachmentable.class.toLowerCase(), typeId: attachmentable.id, id: attachment.id, workspaceId: workspaceId, workspaceType: workspaceType}, function() {
             _.remove(attachmentable.attachments, {id: attachment.id});
             attachmentable.attachments_count = attachmentable.attachments.length;
         }).$promise;
@@ -56,9 +80,9 @@ services.service("AttachmentService", ['Attachment', 'Session', '$q', function(A
                 return false;
         }
     };
-    this.list = function(attachmentable, projectId) {
+    this.list = function(attachmentable, workspaceId, workspaceType) {
         if (_.isEmpty(attachmentable.attachments) && attachmentable.attachments_count > 0) {
-            return Attachment.query({typeId: attachmentable.id, type: attachmentable.class.toLowerCase(), projectId: projectId}, function(data) {
+            return Attachment.query({typeId: attachmentable.id, type: attachmentable.class.toLowerCase(), workspaceId: workspaceId, workspaceType: workspaceType}, function(data) {
                 attachmentable.attachments = data;
                 attachmentable.attachments_count = attachmentable.attachments.length;
             }).$promise;

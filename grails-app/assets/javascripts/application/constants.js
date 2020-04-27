@@ -22,17 +22,26 @@
  * Colin Bontemps (cbontemps@kagilum.com)
  *
  */
-function isTouchOnlyDevice() { //not the best place... but there isn't a best place for that
-    return /iP(ad|hone|od)/.test(navigator.userAgent) || navigator.userAgent.indexOf('Android') > 0;
-}
 
 jQuery.fn.scrollToVisible = function(element, speed) {
+    var computedOffsetTop = this.data('scrollToVisibleComputedOffsetTop');
+    var offset = 0;
+    if (computedOffsetTop === true || (computedOffsetTop && $(element).hasClass(computedOffsetTop))) {
+        offset = 0;
+        var parent = $(element).parent();
+        while (parent[0] !== this[0]) {
+            offset += parent[0].offsetTop;
+            parent = parent.parent();
+        }
+    } else {
+        offset = element.offsetTop;
+    }
     var customOffset = this.data('scrollToVisibleOffset');
-    customOffset = customOffset ? customOffset : 0;
-    var offsetBottom = element.offsetTop + element.offsetHeight;
+    customOffset = customOffset ? (angular.isNumber(customOffset) ? customOffset : angular.element(customOffset)[0].offsetHeight) : 0;
     var scrollBottom = this[0].scrollTop + this[0].offsetHeight;
-    if (((element.offsetTop - customOffset) < this[0].scrollTop) || (offsetBottom > scrollBottom)) {
-        this.animate({scrollTop: element.offsetTop - customOffset}, speed ? speed : 100);
+    var offsetBottom = offset + element.offsetHeight;
+    if (((offset - customOffset) < this[0].scrollTop) || (offsetBottom > scrollBottom)) {
+        this.animate({scrollTop: offset - customOffset}, speed ? speed : 100);
     }
 };
 
@@ -84,13 +93,14 @@ isApplication
         DONE: 3
     })
     .constant('FeatureStatesByName', {
+        DRAFT: -1,
         TODO: 0,
         IN_PROGRESS: 1,
         DONE: 2
     })
     .constant('FeatureTypesByName', {
         FUNCTIONAL: 0,
-        ARCHITECTURAL: 1
+        ENABLER: 1
     })
     .constant('ReleaseStatesByName', {
         TODO: 1,
@@ -101,6 +111,10 @@ isApplication
         CREATE: 'CREATE',
         UPDATE: 'UPDATE',
         DELETE: 'DELETE'
+    })
+    .constant('WorkspaceType', {
+        PORTFOLIO: 'portfolio',
+        PROJECT: 'project'
     })
     .constant('TaskConstants', {
         ORDER_BY: [function(task) { return -task.type }, 'parentStory.rank', 'state', 'rank']

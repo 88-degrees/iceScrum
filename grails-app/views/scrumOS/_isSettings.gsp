@@ -23,6 +23,8 @@
 <%@ page import="org.icescrum.core.support.ApplicationSupport; grails.converters.JSON;grails.util.Holders;" %>
 <script type="text/javascript">
     var isSettings = {
+        darkMode: '${asset.assetPath(src:"application-dark.css")}',
+        lightMode: '${asset.assetPath(src:"application.css")}',
         lang: '${user ? user.preferences.language : lang}',
         user: ${user as JSON},
         userPreferences: ${user ? user.preferences as JSON : 'null'},
@@ -30,6 +32,7 @@
         roles: ${roles as JSON},
         defaultView: "${defaultView}",
         workspace: ${workspace ? workspace as JSON : 'null'},
+        serverID: '${Holders.grailsApplication.config.icescrum.appID}',
         push: {
             enabled: true, // If == false, no atmosphere ressource is created
             transport: "${Holders.config.icescrum.push.transport ?: 'websocket'}",
@@ -66,7 +69,23 @@
         serverUrl: "${serverURL.encodeAsJavaScript()}",
         warning: ${ApplicationSupport.getLastWarning() as JSON},
         workerSrc: "${asset.assetPath(src:"vendors/vanilla/pdfjs/pdf.worker.js")}",
-        enableEmojis: ${ApplicationSupport.isUTF8Database()}
-        <entry:point id="scrumOS-isSettings" model="[user:user, roles:roles, workspace: workspace]"/>
+        enableEmojis: ${ApplicationSupport.isUTF8Database()},
+        announcement: ${announcement as JSON},
+        isMobile: ${isMobile},
+        loginLink: "${createLink(controller: 'login', action: 'auth')}",
+        logoutLink: "${createLink(controller: 'logout')}",
+        redirectToParameter: "redirectTo",
+        meeting: {
+            providers: [<entry:point id="scrumOS-isSettings-meeting" model="[user:user, roles:roles, workspace: workspace]" join=","/>]
+        },
+        attachment: {
+            providers: [<entry:point id="scrumOS-isSettings-attachment" model="[user:user, roles:roles, workspace: workspace]" join=","/>]
+        },
+        clientsOauth: {
+            <g:each in="${grailsApplication.config.icescrum.clientsOauth}" var="clientOauth">
+            ${clientOauth.key}: ${clientOauth.value.findAll{ it.key != 'clientSecret' } as JSON},
+            </g:each>
+        },
+    <entry:point id="scrumOS-isSettings" model="[user:user, roles:roles, workspace: workspace]" join=","/>
     };
 </script>

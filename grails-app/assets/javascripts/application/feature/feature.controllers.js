@@ -23,7 +23,7 @@
  *
  */
 
-extensibleController('featureCtrl', ['$scope', '$controller', '$filter', 'FormService', 'FeatureService', 'postitSize', 'screenSize', function($scope, $controller, $filter, FormService, FeatureService, postitSize, screenSize) {
+extensibleController('featureCtrl', ['$scope', '$controller', '$filter', '$window', 'FormService', 'FeatureService', 'FeatureStatesByName', 'WorkspaceType', function($scope, $controller, $filter, $window, FormService, FeatureService, FeatureStatesByName, WorkspaceType) {
     $controller('tagCtrl', {$scope: $scope, type: 'feature'});
     // Functions
     $scope.authorizedFeature = FeatureService.authorizedFeature;
@@ -34,15 +34,38 @@ extensibleController('featureCtrl', ['$scope', '$controller', '$filter', 'FormSe
     };
     $scope.menus = [
         {
+            name: 'todo.is.ui.details',
+            visible: function(feature, viewType) { return viewType !== 'details'; },
+            action: function(feature) { $window.location.hash = $scope.openFeatureUrl(feature); }
+        },
+        {
             name: 'todo.is.ui.context.set',
-            visible: function(feature) { return $scope.workspaceType == 'project' },
+            visible: function(feature) { return $scope.workspaceType === WorkspaceType.PROJECT },
             url: $scope.featureContextUrl
+        },
+        {
+            name: 'is.ui.feature.state.done',
+            visible: function(feature) { return $scope.authorizedFeature('markDone', feature); },
+            action: function(feature) {
+                FeatureService.updateState(feature, FeatureStatesByName.DONE).then(function() {
+                    $scope.notifySuccess('todo.is.ui.feature.updated');
+                });
+            }
+        },
+        {
+            name: 'is.ui.feature.state.inProgress',
+            visible: function(feature) { return $scope.authorizedFeature('markInProgress', feature); },
+            action: function(feature) {
+                FeatureService.updateState(feature, FeatureStatesByName.IN_PROGRESS).then(function() {
+                    $scope.notifySuccess('todo.is.ui.feature.updated');
+                });
+            }
         },
         {
             name: 'todo.is.ui.permalink.copy',
             visible: function(feature) { return true; },
             action: function(feature) {
-                FormService.copyToClipboard($filter('permalink')(feature.uid, 'feature')).then(function() {
+                FormService.copyToClipboard(feature.permalink).then(function() {
                     $scope.notifySuccess('is.ui.permalink.copy.success');
                 }, function(text) {
                     $scope.notifyError($scope.message('is.ui.permalink.copy.error') + ' ' + text);
@@ -51,22 +74,24 @@ extensibleController('featureCtrl', ['$scope', '$controller', '$filter', 'FormSe
         },
         {
             name: 'default.button.delete.label',
+            deleteMenu: true,
             visible: function(feature) { return $scope.authorizedFeature('delete'); },
-            action: function(feature) { $scope.confirmDelete({callback: $scope.delete, args: [feature]}); }
+            action: function(feature) { $scope.delete(feature); }
         }
     ];
-    // Init
-    var getPostitClass = function() {
-        $scope.postitClass = postitSize.postitClass($scope.viewName, 'grid-group size-sm');
+    $scope.showFeatureProgress = function(feature) {
+        return feature.state === FeatureStatesByName.IN_PROGRESS;
     };
-    getPostitClass();
-    screenSize.on('xs, sm', getPostitClass, $scope);
-    $scope.$watch(function() { return postitSize.currentPostitSize($scope.viewName); }, getPostitClass);
+    $scope.stateHoverProgress = function(feature) {
+        var progress = $filter('percentProgress')(feature.countDoneStories, feature.stories_ids.length);
+        return $scope.showFeatureProgress(feature) && progress > 50;
+    }
+    $scope.featureStatesByName = FeatureStatesByName;
 }]);
 
-controllers.controller('featureDetailsCtrl', ['$scope', '$state', '$controller', 'FeatureStatesByName', 'FeatureService', 'FormService', 'detailsFeature', 'StoryStatesByName', 'features', 'project', function($scope, $state, $controller, FeatureStatesByName, FeatureService, FormService, detailsFeature, StoryStatesByName, features, project) {
+controllers.controller('featureDetailsCtrl', ['$scope', '$state', '$controller', 'FeatureStatesByName', 'ReleaseStatesByName', 'WorkspaceType', 'FeatureService', 'StoryService', 'FormService', 'detailsFeature', 'StoryStatesByName', 'features', 'project', function($scope, $state, $controller, FeatureStatesByName, ReleaseStatesByName, WorkspaceType, FeatureService, StoryService, FormService, detailsFeature, StoryStatesByName, features, project) {
     $controller('featureCtrl', {$scope: $scope}); // inherit from featureCtrl
-    $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsFeature, clazz: 'feature', project: project});
+    $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsFeature, clazz: 'feature', workspace: project, workspaceType: WorkspaceType.PROJECT});
     // Functions
     $scope.update = function(feature) {
         FeatureService.update(feature).then(function() {
@@ -86,11 +111,35 @@ controllers.controller('featureDetailsCtrl', ['$scope', '$state', '$controller',
     $scope.openStoryUrl = function(storyId) {
         return $state.href('.story.details', {storyId: storyId});
     };
+    $scope.toggleFocusUrl = function() {
+        var stateName = $scope.application.focusedDetailsView ? ($state.params.featureTabId ? '^.^.tab' : '^') : $state.params.featureTabId ? '^.focus.tab' : '.focus';
+        return $state.href(stateName, {featureTabId: $state.params.featureTabId});
+    };
+    $scope.currentStateUrl = function(id) {
+        return $state.href($state.current.name, {featureId: id});
+    };
+    $scope.getCurrentRelease = function(feature) {
+        var release = _.find(feature.actualReleases, function(release) {
+            return release.state < ReleaseStatesByName.DONE;
+        });
+        if (!release) {
+            release = _.findLast(feature.actualReleases, function(release) {
+                return release.state === ReleaseStatesByName.DONE;
+            });
+        }
+        return release;
+    };
+    $scope.showAllReleases = function() {
+        $scope.isAllReleases = true;
+    };
+    $scope.authorizedStory = StoryService.authorizedStory;
     // Init
+    $scope.isAllReleases = false;
     $controller('updateFormController', {$scope: $scope, item: detailsFeature, type: 'feature'});
     $scope.previousFeature = FormService.previous(features, $scope.feature);
     $scope.nextFeature = FormService.next(features, $scope.feature);
     $scope.featureStatesByName = FeatureStatesByName;
+    $scope.releaseStatesByName = ReleaseStatesByName;
     $scope.storyStatesByName = StoryStatesByName;
     $scope.availableColors = [];
 }]);
@@ -99,7 +148,7 @@ controllers.controller('featureNewCtrl', ['$scope', '$state', '$controller', 'Fe
     $controller('featureCtrl', {$scope: $scope}); // inherit from featureCtrl
     // Functions
     $scope.resetFeatureForm = function() {
-        $scope.feature = {color: $scope.availableColors && $scope.availableColors.length ? _.last($scope.availableColors) : "#2d8ccc"};
+        $scope.feature = {color: $scope.availableColors && $scope.availableColors.length ? _.last($scope.availableColors) : '#0067e8'};
         $scope.resetFormValidation($scope.formHolder.featureForm);
         $scope.refreshAvailableColors(); // To get a new list the next time
     };
@@ -133,7 +182,7 @@ controllers.controller('featureNewCtrl', ['$scope', '$state', '$controller', 'Fe
     });
 }]);
 
-extensibleController('featureMultipleCtrl', ['$scope', '$controller', 'featureListId', 'FeatureService', 'project', function($scope, $controller, featureListId, FeatureService, project) {
+extensibleController('featureMultipleCtrl', ['$scope', '$controller', 'featureListId', 'FeatureService', 'FeatureStatesByName', 'project', function($scope, $controller, featureListId, FeatureService, FeatureStatesByName, project) {
     $controller('featureCtrl', {$scope: $scope}); // inherit from featureCtrl
     // Functions
     $scope.sumValues = function(features) {
@@ -154,6 +203,17 @@ extensibleController('featureMultipleCtrl', ['$scope', '$controller', 'featureLi
             $scope.notifySuccess('todo.is.ui.feature.multiple.updated');
         });
     };
+    $scope.inProgressMultiple = function() {
+        FeatureService.updateStateMultiple(featureListId, FeatureStatesByName.IN_PROGRESS, project.id).then(function() {
+            $scope.notifySuccess('todo.is.ui.feature.multiple.updated');
+        });
+    };
+    $scope.doneMultiple = function() {
+        FeatureService.updateStateMultiple(featureListId, FeatureStatesByName.DONE, project.id).then(function() {
+            $scope.notifySuccess('todo.is.ui.feature.multiple.updated');
+        });
+    };
+    $scope.authorizedFeatures = FeatureService.authorizedFeatures;
     // Init
     $scope.selectableOptions.selectingMultiple = true;
     $scope.featureListId = featureListId;

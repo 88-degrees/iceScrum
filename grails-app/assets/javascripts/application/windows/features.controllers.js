@@ -22,7 +22,7 @@
  *
  */
 
-extensibleController('featuresCtrl', ['$scope', '$state', '$controller', 'FeatureService', 'project', 'features', function($scope, $state, $controller, FeatureService, project, features) {
+extensibleController('featuresCtrl', ['$scope', '$q', '$state', '$timeout', '$filter', '$controller', 'FeatureService', 'FeatureStatesByName', 'WorkspaceType', 'Feature', 'project', 'features', function($scope, $q, $state, $timeout, $filter, $controller, FeatureService, FeatureStatesByName, WorkspaceType, Feature, project, features) {
     // Functions
     $scope.isSelected = function(selectable) {
         if ($state.params.featureId) {
@@ -48,17 +48,24 @@ extensibleController('featuresCtrl', ['$scope', '$state', '$controller', 'Featur
         $scope.orderBy.current = _.find($scope.orderBy.values, {id: 'rank'});
     };
     $scope.isSortableFeature = function() {
-        return FeatureService.authorizedFeature('rank', $scope.project);
+        return FeatureService.authorizedFeature('rank', null, $scope.project);
     };
     $scope.isSortingFeature = function() {
-        return $scope.isSortableFeature() && $scope.orderBy.current.id == 'rank' && !$scope.orderBy.reverse && !$scope.hasContextOrSearch();
+        return $scope.isSortableFeature() && $scope.orderBy.current.id == 'rank' && !$scope.orderBy.reverse && !$scope.hasContextOrSearch() && $scope.currentFeaturesFilter.id === 'all';
     };
     $scope.enableSortable = function() {
         $scope.clearContextAndSearch();
         $scope.orderByRank();
+        $scope.currentFeaturesFilter = _.find($scope.featuresFilters, {id: 'all'});
     };
     $scope.openFeatureUrl = function(feature) {
         return '#/' + $scope.viewName + '/' + feature.id;
+    };
+    $scope.countByFilter = function(featuresFilter) {
+        return _.filter(project.features, featuresFilter.filter).length;
+    };
+    $scope.changeFeaturesFilter = function(featuresFilter) {
+        $scope.currentFeaturesFilter = featuresFilter;
     };
     // Init
     $scope.viewName = 'feature';
@@ -82,6 +89,58 @@ extensibleController('featuresCtrl', ['$scope', '$state', '$controller', 'Featur
         orderChanged: updateRank,
         accept: function(sourceItemHandleScope, destSortableScope) {
             return sourceItemHandleScope.itemScope.sortableScope.sortableId === destSortableScope.sortableId;
+        }
+    };
+    $scope.newFromFiles = function($flow, project) {
+        var createFeatureWithFile = function(files, project, selectOnComplet) {
+            $flow.files = files;
+            var feature = new Feature();
+            $controller('attachmentCtrl', {$scope: $scope, attachmentable: feature, clazz: 'feature', workspace: project, workspaceType: WorkspaceType.PROJECT});
+            feature.name = $flow.files[0].name.substr(0, $flow.files[0].name.length > 99 ? $flow.files[0].name.length : 99);
+            return FeatureService.getAvailableColors(project.id).then(function(colors) {
+                feature.color = colors && colors.length ? _.last(colors) : '#0067e8';
+                return FeatureService.save(feature, project.id).then(function(savedObject) {
+                    var onFileSuccess = function(flowFile) {
+                        $flow.removeFile(flowFile);
+                    };
+                    var onFileError = function(flowFile, message) {
+                        var data = JSON.parse(message);
+                        $scope.notifyError(angular.isArray(data) ? data[0].text : data.text, {delay: 8000});
+                        $flow.removeFile(flowFile);
+                    };
+                    var onComplete = function() {
+                        if (selectOnComplet) {
+                            $scope.selectableOptions.selectionUpdated([savedObject.id]);
+                            $timeout(function() {
+                                $("[ui-view='details'] input[name='name']").focus();
+                            }, 25);
+                        }
+                        $flow.off('fileError', onFileError);
+                        $flow.off('fileSuccess', onFileSuccess);
+                        $flow.off('complete', onComplete);
+                    };
+                    $flow.on('fileError', onFileError);
+                    $flow.on('fileSuccess', onFileSuccess);
+                    $flow.on('complete', onComplete);
+                    $scope.attachmentQuery($flow, savedObject);
+                }, function() {
+                    $flow.cancel();
+                });
+            });
+        };
+        var featurePerFile = $('.drop-split-zone-left').hasClass('draghover');
+        var files = $flow.files;
+        $flow.files = null;
+        if (featurePerFile) {
+            $q.serial(_.map(files, function(file) {
+                return {
+                    success: function() {
+                        return createFeatureWithFile([file], project, false);
+                    }
+                };
+            }));
+        } else {
+            createFeatureWithFile(files, project, true);
         }
     };
     $scope.sortableId = 'feature';
@@ -118,5 +177,12 @@ extensibleController('featuresCtrl', ['$scope', '$state', '$controller', 'Featur
             {id: 'state', name: $scope.message('todo.is.ui.sort.state')}
         ], 'name')
     };
+    $scope.featuresFilters = [
+        {id: 'all', name: $scope.message('todo.is.ui.backlog.all'), filter: {}},
+        {id: 'todo', name: $filter('i18n')(FeatureStatesByName.TODO, 'FeatureStates'), filter: {state: FeatureStatesByName.TODO}},
+        {id: 'inProgress', name: $filter('i18n')(FeatureStatesByName.IN_PROGRESS, 'FeatureStates'), filter: {state: FeatureStatesByName.IN_PROGRESS}},
+        {id: 'done', name: $filter('i18n')(FeatureStatesByName.DONE, 'FeatureStates'), filter: {state: FeatureStatesByName.DONE}}
+    ];
+    $scope.currentFeaturesFilter = _.find($scope.featuresFilters, {id: 'all'});
     $scope.orderByRank();
 }]);

@@ -67,6 +67,90 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             });
         }
     };
+}]).directive('bindHtmlCompile', ['$compile', function($compile) {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            scope.$watch(function() {
+                return scope.$eval(attrs.bindHtmlCompile);
+            }, function(value) {
+                // In case value is a TrustedValueHolderType, sometimes it
+                // needs to be explicitly called into a string in order to
+                // get the HTML string.
+                element.html(value && value.toString());
+                // If scope is provided use it, otherwise use parent scope
+                var compileScope = scope;
+                var obj = scope.$eval(attrs.bindHtmlScope);
+                if (obj) {
+                    if (obj.$id) {
+                        compileScope = obj
+                    } else {
+                        // if an object, transform it to scope
+                        compileScope = scope.$new();
+                        for (var p in obj) {
+                            compileScope[p] = obj[p]
+                        }
+                    }
+                }
+                $compile(element.contents())(compileScope);
+            });
+        }
+    };
+}]).directive('markitupCheckbox', ['$http', '$rootScope', function($http, $rootScope) {
+    return {
+        restrict: 'A',
+        scope: {
+            markitupCheckbox: '='
+        },
+        link: function(scope, element, attrs) {
+            element.on('focus', function(event) {
+                var options = scope.markitupCheckbox;
+                if (options.isEnabled()) {
+                    var editable = options.object();
+                    event.stopPropagation();
+                    var isChecked = element.hasClass('fa-check-square-o');
+                    var securityCount = 0;
+                    var currentParent = element.parent();
+                    while (!currentParent.hasClass('markitup-preview')) {
+                        currentParent = currentParent.parent();
+                        securityCount++;
+                        if (securityCount === 20) { //no more than 20 iterations to find the markitup preview
+                            element.off('focus');
+                            return;
+                        }
+                    }
+                    if (!currentParent.hasClass('markitup-preview')) {
+                        element.off('focus');
+                        return;
+                    }
+                    var indexClicked = currentParent.find(isChecked ? '[markitup-checkbox].fa-check-square-o' : '[markitup-checkbox].fa-square-o').index(element[0]) + 1;
+                    var textile = editable[options.property];
+                    var indexCheckbox = 0;
+                    textile = textile.replace(isChecked ? /\[x\]/g : /\[\]/g, function(match) {
+                        indexCheckbox++;
+                        return (indexCheckbox === indexClicked) ? (isChecked ? "[]" : "[x]") : match;
+                    });
+                    editable[options.property] = textile;
+                    if (options.autoSubmit()) {
+                        options.action(editable);
+                    } else {
+                        scope.$apply($http({
+                            method: 'POST',
+                            isBackground: true, // Custom attribute to prevent application.submitting
+                            url: $rootScope.serverUrl + '/textileParser',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+                            data: 'data=' + encodeURIComponent(textile)
+                        }).success(function(data) {
+                            editable[options.property + '_html'] = data;
+                        }));
+                    }
+                }
+            });
+            element.on('$destroy', function() {
+                element.off('focus');
+            });
+        }
+    };
 }]).directive('showValidation', ['$compile', '$interpolate', '$rootScope', function($compile, $interpolate, $rootScope) {
     return {
         restrict: "A",
@@ -77,7 +161,7 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                 if (form == undefined) {
                     return;
                 }
-                var inputs = element.find('input[ng-model]:not([validation-watched]):not(.ui-select-search), textarea[ng-model]:not([validation-watched])');
+                var inputs = element.find('input[ng-model]:not([validation-watched]):not(.ui-select-search):not(.search-input), textarea[ng-model]:not([validation-watched])');
                 angular.forEach(inputs, function(it) {
                     var input = angular.element(it);
                     input.attr('validation-watched', '');
@@ -88,7 +172,7 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                     var inputName = $interpolate(input.attr('name'))(input.scope());
                     var inputModel = form[inputName];
                     scope.$watch(function() {
-                        return inputModel.$invalid && (inputModel.$dirty || inputModel.$touched);
+                        return inputModel.$invalid && inputModel.$dirty && inputModel.$touched; //only if user has typed in
                     }, function(newIsInvalid, oldIsInvalid) {
                         if (newIsInvalid && !oldIsInvalid) {
                             var childScope = scope.$new();
@@ -130,12 +214,12 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                             };
                             childScope.input = input;
                             container.addClass('has-error');
-                            var template = '<div class="help-block bg-danger spaced-help-block"><span ng-repeat="errorMessage in errorMessages(inputModel.$error)">{{ errorMessage }}</span></div>';
+                            var template = '<div class="validation-error text-danger"><span ng-repeat="errorMessage in errorMessages(inputModel.$error)">{{ errorMessage }}</span></div>';
                             var compiledTemplate = angular.element($compile(template)(childScope));
                             container.append(compiledTemplate);
                         } else if (!newIsInvalid && oldIsInvalid) {
                             container.removeClass('has-error');
-                            container.find('.help-block').remove();
+                            container.find('.validation-error').remove();
                         }
                     });
                 });
@@ -371,22 +455,7 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             });
         }
     }
-}).directive('inputGroupFixWidth', ['$window', '$timeout', function($window, $timeout) {
-    return {
-        restrict: 'A',
-        link: function(scope, element, attrs) {
-            var resizer = function() {
-                element.css('width', element.parent().parent().width() - attrs.inputGroupFixWidth + 'px');
-            };
-            var windowElement = angular.element($window);
-            windowElement.on('resize.inputGroupFixWidth', _.throttle(resizer, 200));
-            scope.$on('$destroy', function() {
-                windowElement.off("resize.inputGroupFixWidth");
-            });
-            $timeout(resizer);
-        }
-    };
-}]).directive('timeline', ['ReleaseService', 'SprintStatesByName', '$timeout', function(ReleaseService, SprintStatesByName, $timeout) {
+}).directive('timeline', ['$timeout', 'ReleaseService', 'SprintStatesByName', 'DateService', function($timeout, ReleaseService, SprintStatesByName, DateService) {
     return {
         restrict: 'A',
         scope: {
@@ -395,76 +464,107 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             selected: '='
         },
         link: function(scope, element) {
-            var margin = {top: 0, right: 15, bottom: 15, left: 15},
+            var margin = {top: 15, right: 0, bottom: 15, left: 0},
                 elementHeight = element.height(),
                 height = elementHeight - margin.top - margin.bottom,
-                sprintYMargin = 11, releaseYMargin = 15,
+                sprintYMargin = 8,
+                releaseYMargin = 15,
                 releaseHeight = height - releaseYMargin * 2,
+                selectedSprintOffset = -15,
+                sprintRadius = 2,
                 x = d3.time.scale(),
                 xAxis = d3.svg.axis(),
                 y = d3.scale.linear().domain([elementHeight - releaseYMargin, 0 - releaseYMargin]).range([elementHeight, 0]),
                 selectedItems = [];
-            var rootSvg = d3.select(element[0]).append("svg").attr("height", elementHeight);
-            var svg = rootSvg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-            var timelineBackground = svg.append("rect").attr("class", "timeline-background").attr("height", elementHeight);
-            var xAxisSelector = svg.append("g").attr("class", "x axis").attr('transform', 'translate(0,' + (height - margin.top - margin.bottom) + ')');
-            var releases = svg.append("g").attr("class", "releases");
-            var sprints = svg.append("g").attr("class", "sprints");
-            var sprintTexts = svg.append("g").attr("class", "sprint-texts");
-            var brush = d3.svg.brush().x(x).y(y).on("brush", onBrush).on("brushend", onBrushEnd);
-            var brushSelector = svg.append("g").attr("class", "brush").call(brush);
-            var versions = svg.append("g").attr("class", "versions");
-            var today = svg.append("rect").attr("class", "today").attr("height", releaseHeight).attr("width", 1.5);
+            var rootSvg = d3.select(element[0]).append('svg').attr('height', elementHeight);
+            // Defs
+            var defs = rootSvg.append('defs');
+            _.each(['todoSprintGradient', 'todoReleaseGradient', 'inProgressReleaseGradient', 'doneReleaseGradient', 'inProgressSprintGradient', 'doneSprintGradient'], function(gradientId) {
+                var gradient = defs.append('linearGradient').attr('id', gradientId);
+                gradient.append('stop').attr('class', gradientId + '-left').attr('offset', '0');
+                gradient.append('stop').attr('class', gradientId + '-right').attr('offset', '1');
+            });
+            var shadows = [
+                // Roughly equivalent to box-shadow, with: dx == offset-x | dy == offset-y | stdDeviation == blur-radius/2 | flood-color == color
+                {id: 'selectedSprintShadow', attrs: {dx: 0, dy: 8, stdDeviation: 6, 'flood-color': 'rgb(0, 0, 5)', 'flood-opacity': 0.33}},
+                {id: 'sprintShadow', attrs: {dx: 0, dy: 3, stdDeviation: 2, 'flood-color': 'rgb(0, 0, 5)', 'flood-opacity': 0.10}}
+            ];
+            _.each(shadows, function(shadow) {
+                var filter = defs.append('filter').attr('id', shadow.id).attr('height', '200%').attr('width', '200%');
+                // Option 1
+                var shadowFilter = filter.append('feDropShadow');
+                _.each(shadow.attrs, function(value, key) {
+                    shadowFilter.attr(key, value);
+                });
+                // Option 2 that may be compatible with more browsers
+                // filter.append('feGaussianBlur').attr('in', 'SourceAlpha').attr('stdDeviation', shadow.attrs.stdDeviation);
+                // filter.append('feOffset').attr('dx', shadow.attrs.dx).attr('dy', shadow.attrs.dy).attr('result', 'offsetBlur');
+                // filter.append('feFlood').attr('flood-color', shadow.attrs['flood-color']).attr('flood-opacity', shadow.attrs['flood-opacity']);
+                // filter.append('feComposite').attr('in2', 'offsetBlur').attr('operator', 'in');
+                // var feMerge = filter.append('feMerge');
+                // feMerge.append('feMergeNode');
+                // feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+            });
+            // Elements
+            var svg = rootSvg.append('g').attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+            var timelineBackground = svg.append('rect').attr('class', 'timeline-background').attr('height', elementHeight);
+            var xAxisSelector = svg.append('g').attr('class', 'x axis').attr('transform', 'translate(0,' + (height - margin.bottom + 3) + ')');
+            var releases = svg.append('g').attr('class', 'releases');
+            var sprints = svg.append('g').attr('class', 'sprints');
+            var sprintTexts = svg.append('g').attr('class', 'sprint-texts');
+            var brush = d3.svg.brush().x(x).y(y).on('brush', onBrush).on('brushend', onBrushEnd);
+            var brushSelector = svg.append('g').attr('class', 'brush').call(brush);
+            var versions = svg.append('g').attr('class', 'versions');
+            svg.append('line').attr('class', 'today-line').attr('y1', releaseYMargin - 7).attr('y2', releaseYMargin + releaseHeight + 7);
             var getEffectiveEndDate = function(sprint) { return sprint.state == SprintStatesByName.DONE ? sprint.doneDate : sprint.endDate; };
 
             // Main rendering
             function render() {
                 var _releases = scope.timeline;
                 if (!scope.timeline || !scope.timeline.length) return;
-                rootSvg.attr("width", element.width());
-                var elementWidth = element.width(); // WARNING: element.width must be recomputed after rootSvg.attr("width", ...) because it changes if the right panel has lateral padding (e.g. with .new form which has .panel-body padding)
+                rootSvg.attr('width', element.width());
+                var elementWidth = element.width(); // WARNING: element.width must be recomputed after rootSvg.attr('width', ...) because it changes if the right panel has lateral padding (e.g. with .new form which has .card-body padding)
                 var width = elementWidth - margin.left - margin.right;
                 x.domain([_.head(_releases).startDate, _.last(_releases).endDate]).range([0, width]);
                 xAxis.scale(x);
                 xAxisSelector.call(xAxis);
-                timelineBackground.attr("width", width);
+                timelineBackground.attr('width', width);
 
                 var _sprints = ReleaseService.findAllSprints(_releases);
                 var releaseSelector = releases.selectAll('rect').data(_releases);
                 var sprintSelector = sprints.selectAll('rect').data(_sprints);
                 var sprintTextsSelector = sprintTexts.selectAll('text').data(_sprints);
                 var versionSelector = versions.selectAll('.version').data(_.filter(_sprints, 'deliveredVersion'));
-                var versionTriangleSelector = versionSelector.select('path');
                 var versionTextSelector = versionSelector.select('text');
-                var todaySelector = svg.select('.today').data([new Date()]);
+                var todaySelector = svg.select('.today-line').data([DateService.getMidnightTodayUTC()]);
                 // Remove
                 releaseSelector.exit().remove();
                 sprintSelector.exit().remove();
                 sprintTextsSelector.exit().remove();
                 versionSelector.exit().remove();
                 // Insert
-                var classByState = {};
-                classByState[SprintStatesByName.TODO] = 'todo';
-                classByState[SprintStatesByName.IN_PROGRESS] = 'inProgress';
-                classByState[SprintStatesByName.DONE] = 'done';
-                releaseSelector.enter().append("rect")
-                    .attr("y", releaseYMargin)
-                    .attr("height", releaseHeight);
-                sprintSelector.enter().append("rect")
-                    .attr("y", sprintYMargin + releaseYMargin)
-                    .attr("height", releaseHeight - sprintYMargin * 2);
-                sprintTextsSelector.enter().append("text")
-                    .attr("y", 6 + height / 2)
-                    .style("text-anchor", "middle")
-                    .attr("font-size", "18px");
-                var versionEnter = versionSelector.enter().append("g")
-                    .attr("class", "version");
-                versionEnter.append("path")
-                    .attr("d", d3.svg.symbol().type("triangle-down"));
-                versionEnter.append("text")
-                    .attr("y", 12)
-                    .style("text-anchor", "middle")
-                    .attr("font-size", "11px");
+                var stateClass = {};
+                stateClass[SprintStatesByName.TODO] = 'todo';
+                stateClass[SprintStatesByName.IN_PROGRESS] = 'inProgress';
+                stateClass[SprintStatesByName.DONE] = 'done';
+                releaseSelector.enter().append('rect')
+                    .attr('y', releaseYMargin)
+                    .attr('height', releaseHeight);
+                sprintSelector.enter().append('rect')
+                    .attr('y', sprintYMargin + releaseYMargin)
+                    .attr('height', releaseHeight - sprintYMargin * 2)
+                    .attr('rx', sprintRadius)
+                    .attr('ry', sprintRadius);
+                sprintTextsSelector.enter().append('text')
+                    .attr('y', 5 + height / 2)
+                    .style('text-anchor', 'middle')
+                    .attr('font-size', '18px');
+                var versionEnter = versionSelector.enter().append('g')
+                    .attr('class', 'version');
+                versionEnter.append('text')
+                    .attr('y', 5)
+                    .style('text-anchor', 'middle')
+                    .attr('font-size', '11px');
                 // Update
                 var getX = function(item) {
                     return x(item.startDate);
@@ -472,8 +572,11 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                 var getWidth = function(item) {
                     return x(item.endDate) - x(item.startDate);
                 };
+                var isSelected = function(item) {
+                    return _.includes(selectedItems, item)
+                };
                 var selectedClass = function(item) {
-                    return _.includes(selectedItems, item) ? ' selected' : ''
+                    return isSelected(item) ? ' selected' : ''
                 };
                 var dateSelectedClass = function(date) {
                     return _.some(selectedItems, function(item) {
@@ -482,25 +585,29 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                 };
                 releaseSelector
                     .attr('x', getX)
-                    .attr("width", getWidth)
-                    .attr("class", function(release) { return "release release-" + classByState[release.state] + selectedClass(release); });
+                    .attr('width', getWidth)
+                    .attr('class', function(release) { return 'release release-' + stateClass[release.state] + selectedClass(release); })
+                    .attr('fill', function(sprint) { return 'url(#' + stateClass[sprint.state] + 'ReleaseGradient)' });
                 sprintSelector
                     .attr('x', getX)
-                    .attr("width", getWidth)
-                    .attr("class", function(sprint) { return "sprint sprint-" + classByState[sprint.state] + selectedClass(sprint); });
+                    .attr('width', getWidth)
+                    .attr('class', function(sprint) { return 'sprint sprint-' + stateClass[sprint.state] + selectedClass(sprint); })
+                    .attr('transform', function(sprint) { return isSelected(sprint) ? 'translate(0,' + selectedSprintOffset + ')' : ''; })
+                    .attr('fill', function(sprint) { return 'url(#' + stateClass[sprint.state] + 'SprintGradient)' })
+                    .style('filter', function(sprint) { return 'url(#' + (isSelected(sprint) ? 'selectedSprintShadow' : 'sprintShadow') + ')' });
                 sprintTextsSelector
                     .text(function(sprint) { return sprint.index; })
                     .attr('x', function(sprint) { return x(new Date(sprint.startDate.getTime() + (sprint.endDate.getTime() - sprint.startDate.getTime()) / 2)); })
-                    .attr("class", function(sprint) { return "sprint-text" + selectedClass(sprint); });
+                    .attr('class', function(sprint) { return 'sprint-text ' + stateClass[sprint.state] + selectedClass(sprint); })
+                    .attr('transform', function(sprint) { return isSelected(sprint) ? 'translate(0,' + selectedSprintOffset + ')' : ''; });
                 versionSelector
-                    .attr("class", function(sprint) { return 'version' + dateSelectedClass(getEffectiveEndDate(sprint)); });
-                versionTriangleSelector
-                    .attr("transform", function(sprint) { return "translate(" + x(getEffectiveEndDate(sprint)) + "," + (releaseYMargin + sprintYMargin - 5) + ")"; }); // Offset to align border rather than center
+                    .attr('class', function(sprint) { return 'version' + dateSelectedClass(getEffectiveEndDate(sprint)); });
                 versionTextSelector
                     .text(function(sprint) { return sprint.deliveredVersion; })
                     .attr('x', function(sprint) { return x(getEffectiveEndDate(sprint)); });
                 todaySelector
-                    .attr("transform", function(date) { return 'translate(' + x(date) + ',' + releaseYMargin + ')'; }); // Offset to align border rather than center
+                    .attr('x1', function(date) { return x(date) })
+                    .attr('x2', function(date) { return x(date) });
             }
 
             // Brush management
@@ -517,12 +624,12 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                 var onSprint = (y[0] > sprintYMargin || y[1] > sprintYMargin) && (y[0] < (releaseHeight - sprintYMargin) || y[1] < (releaseHeight - sprintYMargin));
                 var res;
                 if (onSprint) {
-                    res = _.filter(sprints.selectAll("rect").data(), function(sprint) {
+                    res = _.filter(sprints.selectAll('rect').data(), function(sprint) {
                         return sprint.startDate <= dates[1] && sprint.endDate >= dates[0];
                     });
                 }
                 if (!res || !res.length) {
-                    res = [_.find(releases.selectAll("rect").data(), function(release) {
+                    res = [_.find(releases.selectAll('rect').data(), function(release) {
                         return release.startDate <= dates[1] && release.endDate >= dates[0];
                     })];
                 }
@@ -540,30 +647,31 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                 render(); // To update selected items
             }
 
+            function renderAndReinitializeBrush() {
+                render();
+                reinitializeBrush();
+            }
+
             function onBrushEnd() {
                 if (!d3.event.sourceEvent) return; // Only transition after input
                 selectedItems = findSprintsOrAReleaseInRange(getBrushRanges());
                 if (selectedItems.length > 0) {
                     scope.onSelect(selectedItems);
                 }
-                reinitializeBrush();
-                render(); // To update selected items
+                renderAndReinitializeBrush(); // Update selected items
             }
 
             // Register render on model change
-            var removeTimelineWatcher = scope.$watch('timeline', function() {
-                render();
-                reinitializeBrush(); // Init brush on first loading or after creating first release
-            }, true);
+            var removeTimelineWatcher = scope.$watch('timeline', renderAndReinitializeBrush, true);
             var removeSelectedWatcher = scope.$watch('selected', function(newSelected) {
                 selectedItems = newSelected;
                 render(); // To update selected items
             }, true);
-            // Register render on width change (either by resize or opening / closing of details view)
-            d3.select(window).on('resize', _.throttle(render, 200));
+            // Register render on size change (either by resize or opening / closing of details view)
+            d3.select(window).on('resize', _.throttle(renderAndReinitializeBrush, 200));
             var unregisterRenderOnDetailsChanged = scope.$root.$on('$viewContentLoaded', function(event, viewConfig) {
                 if (viewConfig.indexOf('@planning') != -1) {
-                    $timeout(render, 100);
+                    $timeout(renderAndReinitializeBrush, 100);
                 }
             });
             // Unregister event listener & watchers when state change & scope destroy
@@ -580,27 +688,40 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             });
         }
     }
-}]).directive('postitMenu', ['$compile', '$rootScope', function($compile, $rootScope) {
+}]).directive('stickyNoteMenu', ['$compile', '$rootScope', function($compile, $rootScope) {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
             element.on('mouseover', function() {
                 if (!$rootScope.application.dragging) {
                     var newElement = element.clone();
-                    newElement.removeAttr('postit-menu');
+                    newElement.removeAttr('sticky-note-menu');
                     newElement.attr('uib-dropdown', '');
                     newElement.attr('dropdown-append-to-body', '');
-                    newElement.html('<a uib-dropdown-toggle><i class="fa fa-ellipsis-h"></i></a><ul uib-dropdown-menu class="dropdown-menu-right" template-url="' + attrs.postitMenu + '"></ul>');
+                    newElement.html('<a uib-dropdown-toggle class="no-caret action-link"><span class="action-icon action-icon-menu"></span></a><div uib-dropdown-menu class="dropdown-menu-right" template-url="' + attrs.stickyNoteMenu + '"></div>');
                     element.replaceWith(angular.element($compile(newElement)(scope)));
                 }
             });
         }
     }
-}]).directive('postitColor', ['$filter', '$rootScope', function($filter, $rootScope) {
+}]).directive('stickyNoteColor', ['$filter', function($filter) {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            element.css($filter('createGradientBackground')(attrs.postitColor ? attrs.postitColor : '#f9f157'));
+            element.css($filter('createGradientBackground')(attrs.stickyNoteColor));
+            element.closest('.sticky-note-container').css($filter('createShadow')(attrs.stickyNoteColor));
+        }
+    }
+}]).directive('stickyNoteColorWatch', ['$filter', function($filter) {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            scope.$watch(function() {
+                return attrs.stickyNoteColorWatch;
+            }, function(newColor) {
+                element.css($filter('createGradientBackground')(newColor));
+                element.closest('.sticky-note-container').css($filter('createShadow')(newColor));
+            });
         }
     }
 }]).directive('deferTooltip', ['$compile', '$rootScope', function($compile, $rootScope) {
@@ -642,7 +763,7 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             if (scope.unavailableFeature) {
                 element.on('click', function() {
                     $uibModal.open({
-                        template: '<div class="modal-header"><h4 class="modal-title">Feature Coming Soon</h4></div><div class="modal-body">This feature is still in development, it will be available soon!</div><div class="modal-footer"><button type="button" class="btn btn-default" ng-click="$close()">Close</button></div>',
+                        template: '<div class="modal-header"><h4 class="modal-title">Feature Coming Soon</h4></div><div class="modal-body">This feature is still in development, it will be available soon!</div><div class="modal-footer"><button type="button" class="btn btn-secondary" ng-click="$close()">Close</button></div>',
                         size: 'sm'
                     });
                     return false;
@@ -659,7 +780,7 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
         link: function(scope, element) {
             // Scroll to selection on refresh
             element.scope().$on('selectable-refresh', function() {
-                var scrollableContainerSelector = '.panel-body';
+                var scrollableContainerSelector = '.card-body';
                 element.find(scrollableContainerSelector).addBack(scrollableContainerSelector).each(function(i, container) {
                     container = $(container);
                     var selectedElements = container.find('.is-selected');
@@ -674,7 +795,7 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                         });
                         if (!anySelectedVisible) {
                             var firstSelected = selectedElements.first();
-                            var offset = 45; // Hardcoded offset to compensate panel-heading & margin, TODO use dynamic offset
+                            var offset = 45; // Hardcoded offset to compensate card-header & margin, TODO use dynamic offset
                             var currentScroll = container.scrollTop(); // current scroll reduces the firstSelected top position, we must add it back to get the initial position
                             var scrollTop = firstSelected.position().top - offset + currentScroll;
                             // Rely on jquery animate :/
@@ -752,129 +873,6 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             });
         }
     }
-}]).directive("stickyList", ['$window', function($window) {
-    return {
-        restrict: 'A',
-        link: function(scope, element, attrs) {
-            // Functions
-            var getHeaders = function() {
-                return _.map(element.find('.sticky-header:not(.cloned)'), angular.element);
-            };
-            var position = function() {
-                if (getHeaders().length) {
-                    var originOffset = container.offset().top;
-                    offset = originOffset;
-                    _.each($headerClones, function($clone, index) {
-                        offset = originOffset + computeStackOffset(index);
-                        $clone.css('top', offset + 'px');
-                        if (index < stackSize) {
-                            $clone.css('z-index', '98');
-                        }
-                        computeWidth(index);
-                    });
-                }
-            };
-            var computeStackOffset = function(index) {
-                var _offset = 0;
-                if (stackSize > 0) {
-                    _.each($headerClones, function($clone, indexH) {
-                        if (indexH < stackSize && index > indexH) {
-                            _offset += $clone.outerHeight(true);
-                        }
-                    });
-                }
-                return _offset;
-            };
-            var computeWidth = function(index) {
-                var $clone = $headerClones[index];
-                var $header = getHeaders()[index];
-                $clone.width($header.width());
-                var $headerThs = $header.find('th,td');
-                var $cloneThs = $clone.find('th,td');
-                _.each($headerThs, function(headerTh, index) {
-                    angular.element($cloneThs[index]).css('width', angular.element(headerTh).outerWidth());
-                });
-            };
-            var render = function() {
-                _.each(getHeaders(), function($header, index) {
-                    var isOnTop = container.scrollTop() == 0;
-                    if (wasOnTop && !isOnTop) {
-                        // Cleanup on top for corner cases where clones remain
-                        _.each($headerClones, function(clone) {
-                            clone.remove();
-                        });
-                        $headerClones = [];
-                    }
-                    wasOnTop = isOnTop;
-                    var top = $header.offset().top;
-                    var $previousClone;
-                    if (index == 0) {
-                        position();
-                    } else {
-                        $previousClone = $headerClones[index - 1];
-                    }
-                    if (offset > top && container.scrollTop() > 0) {
-                        if ($header.css('visibility') != 'hidden') {
-                            var $clone = $header.clone();
-                            $clone.data('height', $header.outerHeight(true))
-                                .css('top', offset + 'px').css('position', 'fixed').css('overflow-y', 'hidden').css('z-index', index + 1)
-                                .addClass('cloned').addClass('sticky-' + index);
-                            $headerClones.push($clone);
-                            $header.parent().css('position', 'relative');
-                            $clone.insertAfter($header);
-                            computeWidth(index);
-                            $header.css('visibility', 'hidden');
-                            if ($previousClone && index > stackSize) {
-                                $previousClone.css('visibility', 'hidden');
-                            }
-                        }
-                    } else {
-                        if ($previousClone && !$previousClone.hasClass('sticky-stack')) {
-                            var diff = offset - top + $previousClone.data('height');
-                            $previousClone.css('top', (diff >= 0 ? offset - diff : offset) + 'px');
-                        }
-                        if ($header.css('visibility') == 'hidden') {
-                            $headerClones.pop().remove();
-                            $header.css('visibility', 'visible');
-                            if ($previousClone) {
-                                $previousClone.css('height', '').css('visibility', 'visible');
-                            }
-                        }
-                    }
-                });
-            };
-            var refreshHeaders = function() {
-                var $headers = getHeaders();
-                _.each($headerClones, function($headerClone, index) {
-                    if ($headers[index]) {
-                        $headerClone.html($headers[index].html());
-                        computeWidth(index);
-                    } else {
-                        return false;
-                    }
-                });
-            };
-            // Init
-            var offset;
-            var wasOnTop = true;
-            var $headerClones = [];
-            var stackSize = element.find('.sticky-header.sticky-stack').length;
-            var container = attrs.stickyList ? angular.element(attrs.stickyList) : element;
-            container.on("scroll", render); // Destroyed automatically
-            var windowElement = angular.element($window);
-            var viewElement = angular.element('.main > .view');
-            windowElement.on("resize.stickyList", _.throttle(position, 200));
-            viewElement.on("scroll", position);
-            scope.$on('$destroy', function() {
-                windowElement.off("resize.stickyList");
-                viewElement.off("scroll", position);
-            });
-            render();
-            if (attrs.stickyWatch) {
-                scope.$watchCollection(attrs.stickyWatch, _.debounce(refreshHeaders, 100));
-            }
-        }
-    };
 }]).directive('visualStates', ['$compile', '$filter', function($compile, $filter) {
     return {
         restrict: 'E',
@@ -898,7 +896,6 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
                     var name = $filter('i18n')(state, newModel.class + 'States');
                     return {
                         name: name,
-                        width: 100 / allStates.length,
                         completed: newState >= state,
                         current: newState == state,
                         tooltip: name + (date ? ': ' + ($filter('dateTime')(date)) : ''),
@@ -916,13 +913,14 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             ngModel: '=',
             viewType: '=',
             modelMenus: '=',
-            btnPrimary: '=?'
+            btnSecondary: '=?'
         },
         replace: true,
         templateUrl: 'button.shortcutMenu.html',
         link: function(scope) {
             scope.message = $rootScope.message;
-            scope.btnPrimary = angular.isDefined(scope.btnPrimary) ? scope.btnPrimary : (angular.isDefined(scope.btnSm) ? !scope.btnSm : true);
+            scope.btnSecondary = angular.isDefined(scope.btnSecondary) ? scope.btnSecondary : false;
+            scope.menuClick = $rootScope.menuClick;
             scope.$watch(function() { return scope.ngModel.lastUpdated; }, function() {
                 var i = scope.modelMenus.length;
                 scope.sortedMenus = $filter('orderBy')(scope.modelMenus, function(menuElement) {
@@ -935,42 +933,30 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             });
         }
     };
-}]).directive('detailsLayoutButtons', ['$rootScope', '$state', '$localStorage', function($rootScope, $state, $localStorage) {
+}]).directive('detailsLayoutButtons', ['$rootScope', '$state', function($rootScope, $state) {
     return {
         restrict: 'E',
-        scope: {
-            removeAncestor: '='
-        },
         replace: true,
         templateUrl: 'details.layout.buttons.html',
-        link: function(scope) {
+        link: function(scope, element, attrs) {
             // Functions
             scope.closeDetailsViewUrl = function() {
-                var stateName = '^';
-                if ($state.includes('**.tab')) {
-                    stateName += '.^'
+                if (scope.isModal) {
+                    scope.$close();
+                } else {
+                    var stateName = '^';
+                    if ($state.includes('**.tab')) {
+                        stateName += '.^'
+                    }
+                    var removeAncestor = scope.$eval(attrs.removeAncestor);
+                    if (removeAncestor) {
+                        _.times(_.isNumber(removeAncestor) ? parseInt(removeAncestor) : 1, function() {
+                            stateName += '.^';
+                        });
+                    }
+                    return $state.go(stateName);
                 }
-                if (scope.removeAncestor) {
-                    _.times(_.isNumber(scope.removeAncestor) ? parseInt(scope.removeAncestor) : 1, function() {
-                        stateName += '.^';
-                    });
-                }
-                return $state.href(stateName);
             };
-            scope.toggleDetachedDetailsView = function() {
-                scope.application.detachedDetailsView = !scope.application.detachedDetailsView;
-                if (!scope.application.detachedDetailsView) {
-                    scope.application.minimizedDetailsView = false;
-                }
-                $localStorage['minimizedDetailsView'] = scope.application.minimizedDetailsView;
-                $localStorage['detachedDetailsView'] = scope.application.detachedDetailsView;
-            };
-            scope.toggleMinimizedDetailsView = function() {
-                scope.application.minimizedDetailsView = !scope.application.minimizedDetailsView;
-                $localStorage['minimizedDetailsView'] = scope.application.minimizedDetailsView;
-            };
-            // Init
-            scope.application = $rootScope.application;
         }
     };
 }]).directive('iconBadge', function() { // Be careful, this directive has no watch, it will work only under isWatch
@@ -985,7 +971,7 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             if (scope.$eval(attrs.hide) && scope.count <= scope.max) {
                 return;
             }
-            scope.icon = scope.count === 0 && attrs.iconEmpty ? attrs.iconEmpty : attrs.icon;
+            scope.icon = attrs.icon;
             scope.href = attrs.href;
             scope.tooltip = scope.count + ' ' + attrs.tooltip;
             scope.classes = (attrs.classes ? attrs.classes : '') + (scope.count > 0 ? ' active' : '');
@@ -1144,4 +1130,70 @@ directives.directive('isMarkitup', ['$http', '$rootScope', function($http, $root
             $window.on(trackedEvents.join(" "), _.debounce(scopeCheckFunc, 15000));
         }
     };
-});
+}).directive('starRating', function() {
+    return {
+        restrict: 'A',
+        template: '<div class="rating">' +
+                  '<span ng-repeat="star in stars" ng-class="star" ng-click="toggle($index)"></span>' +
+                  '</div>',
+        scope: {
+            ratingValue: '=',
+            max: '=',
+            onRatingSelected: '&'
+        },
+        link: function(scope) {
+            var updateStars = function() {
+                scope.stars = _.times(scope.max, function(index) {
+                    return {
+                        filled: index < scope.ratingValue
+                    }
+                });
+            };
+            scope.toggle = function(index) {
+                scope.ratingValue = index + 1;
+                scope.onRatingSelected({
+                    rating: index + 1
+                });
+                updateStars();
+            };
+            updateStars();
+        }
+    }
+}).directive('deleteButtonClick', ['$timeout', '$rootScope', function($timeout, $rootScope) {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            var timeout;
+            element.on('click', function($event) {
+                if (!element.hasClass("confirm-delete-action")) {
+                    $event.preventDefault();
+                    $event.stopPropagation();
+                    element.addClass("confirm-delete-action");
+                    element.data('text', element.html());
+                    element.html($rootScope.message('is.ui.delete.confirm'));
+                } else {
+                    element.attr('disabled', 'disabled');
+                    scope.$eval(attrs.deleteButtonClick);
+                }
+            })
+            element.on('mouseenter', function() {
+                if (element.hasClass("confirm-delete-action") && timeout) {
+                    $timeout.cancel(timeout);
+                }
+            });
+            element.on('mouseleave', function() {
+                if (element.hasClass("confirm-delete-action")) {
+                    timeout = $timeout(function() {
+                        element.html(element.data('text'));
+                        element.removeClass("confirm-delete-action");
+                    }, 2000);
+                }
+            });
+            scope.$on('$destroy', function() {
+                if (timeout) {
+                    $timeout.cancel(timeout);
+                }
+            });
+        }
+    }
+}]);

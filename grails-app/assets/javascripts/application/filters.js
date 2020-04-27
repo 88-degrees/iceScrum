@@ -22,7 +22,7 @@
  *
  */
 
-var contrastColorCache = {}, gradientBackgroundCache = {}, userVisualRolesCache = {};
+var contrastColorCache = {}, gradientCache = {}, userVisualRolesCache = {};
 var filters = angular.module('filters', []);
 
 filters
@@ -31,6 +31,7 @@ filters
             var namesFromEmail = {email: email};
             var emailPrefix = email.split('@')[0];
             namesFromEmail.firstName = emailPrefix;
+            namesFromEmail.username = emailPrefix;
             var dotPosition = emailPrefix.indexOf('.');
             if (dotPosition != -1) {
                 namesFromEmail.firstName = _.capitalize(emailPrefix.substring(0, dotPosition));
@@ -64,11 +65,11 @@ filters
         };
     }])
     .filter('userAvatar', ['$rootScope', 'Session', function($rootScope, Session) {
-        return function(user, initials) {
+        return function(user) {
             if (Session.current(user)) {
                 user = Session.user; // Bind to current user to see avatar change immediately
             }
-            return user && user.id ? ($rootScope.serverUrl + '/user/' + (initials ? 'initialsAvatar' : 'avatar') + '/' + user.id) : $rootScope.serverUrl + '/assets/avatars/avatar.png';
+            return $rootScope.serverUrl + '/user' + (user && user.id ? ('/' + user.id) : '') + '/avatar';
         };
     }])
     .filter('userInitialsAvatar', ['$rootScope', 'FormService', function($rootScope, FormService) {
@@ -76,13 +77,13 @@ filters
             return $rootScope.serverUrl + '/user/initialsAvatar/?firstName=' + user.firstName + '&lastName=' + user.lastName;
         };
     }])
-    .filter('userColorRoles', ['$rootScope', function($rootScope) {
+    .filter('userColorRoles', ['$rootScope', 'Session', function($rootScope, Session) {
         return function(user, project) {
-            var classes = "img-rounded user-role";
+            var classes = "";
             if (!project) {
                 project = $rootScope.getProjectFromState();
             }
-            if (!project || !project.pkey) {
+            if (!project || !project.pkey || !user) {
                 return classes;
             }
             if (!userVisualRolesCache[project.pkey]) {
@@ -90,85 +91,126 @@ filters
             }
             if (!userVisualRolesCache[project.pkey][user.id]) {
                 if (_.find(project.productOwners, {id: user.id})) {
-                    classes += " po";
+                    classes += " role-po";
                 }
                 if (_.find(project.team.scrumMasters, {id: user.id})) {
-                    classes += " sm";
+                    if (classes.indexOf('role-po') !== -1) {
+                        classes += "-sm";
+                    } else {
+                        classes += " role-sm";
+                    }
                 }
                 userVisualRolesCache[project.pkey][user.id] = classes;
             }
-            return userVisualRolesCache[project.pkey][user.id];
+            var finalClasses = userVisualRolesCache[project.pkey][user.id];
+            if (_.find(project.onlineMembers, {id: user.id})) {
+                finalClasses += " user-online";
+            }
+            return finalClasses;
         };
     }])
     .filter('storyType', ['StoryTypesClasses', function(StoryTypesClasses) {
         return function(type) {
             var cssClass = StoryTypesClasses[type];
             if (cssClass) {
-                cssClass += ' postit-type';
+                cssClass += ' sticky-note-type';
             }
             return cssClass;
         };
     }])
-    .filter('storyTypeIcon', ['StoryTypesIcons', function(StoryTypesIcons) {
+    .filter('storyTypeIcon', ['StoryTypesClasses', function(StoryTypesClasses) {
         return function(type) {
-            return StoryTypesIcons[type];
+            var clazz = StoryTypesClasses[type];
+            return clazz ? ('item-type-icon item-type-icon-' + clazz) : '';
         }
     }])
     .filter('featureType', ['FeatureTypesByName', function(FeatureTypesByName) {
         return function(type) {
-            return type == FeatureTypesByName.ARCHITECTURAL ? 'architectural postit-type' : '';
+            return type == FeatureTypesByName.ENABLER ? 'enabler sticky-note-type' : '';
         };
     }])
     .filter('featureTypeIcon', ['FeatureTypesByName', function(FeatureTypesByName) {
         return function(type) {
-            return type == FeatureTypesByName.ARCHITECTURAL ? 'cogs' : '';
+            return type == FeatureTypesByName.ENABLER ? 'item-type-icon item-type-icon-enabler' : '';
         };
+    }])
+    .filter('featureNameState', ['FeatureStatesByName', 'i18nFilter', function(FeatureStatesByName, i18nFilter) {
+        return function(feature) {
+            return feature.name + (feature.state === FeatureStatesByName.DONE ? ' (' + i18nFilter(FeatureStatesByName.DONE, 'FeatureStates') + ')' : '');
+        }
     }])
     .filter('join', function() {
         return function(array) {
             return _.join(array, ', ');
         };
     })
-    .filter('contrastColor', function() {
-        return function(bg, invert) {
-            if (bg && contrastColorCache[bg] != undefined) {
-                return invert ? (contrastColorCache[bg] == 'invert' ? '' : 'invert') : contrastColorCache[bg];
-            } else if (bg && contrastColorCache[bg] == undefined) {
-                //convert hex to rgb
-                var color;
-                if (bg.indexOf('#') == 0) {
-                    var bigint = parseInt(bg.substring(1), 16);
-                    var r = (bigint >> 16) & 255, g = (bigint >> 8) & 255, b = bigint & 255;
-                    color = 'rgb(' + r + ', ' + g + ', ' + b + ')';
-                } else {
-                    color = bg;
+    .filter('storyColor', function() {
+        return function(story) {
+            return (story && story.feature) ? story.feature.color : '#f9f157';
+        };
+    })
+    .filter('contrastColor', ['ColorService', function(ColorService) {
+        return function(color) {
+            if (color) {
+                if (contrastColorCache[color] === undefined) {
+                    var rgb = color.indexOf('#') === 0 ? ColorService.hexToRgb(color) : ColorService.rgbStringToRgb(color);
+                    contrastColorCache[color] = ColorService.brightness(rgb) >= 169 ? '' : 'invert';
                 }
-                //get r,g,b and decide
-                var rgb = color.replace(/^(rgb|rgba)\(/, '').replace(/\)$/, '').replace(/\s/g, '').split(',');
-                var yiq = ((rgb[0] * 299) + (rgb[1] * 587) + (rgb[2] * 114)) / 1000;
-                contrastColorCache[bg] = (yiq >= 169) ? '' : 'invert';
-                return invert ? (contrastColorCache[bg] == 'invert' ? '' : 'invert') : contrastColorCache[bg];
+                return contrastColorCache[color];
             } else {
                 return '';
             }
         };
-    })
-    .filter('createGradientBackground', function() {
-        return function(color) {
-            if (!gradientBackgroundCache[color]) {
-                var ratio = 18;
-                var num = parseInt(color.substring(1), 16),
-                    ra = (num >> 16) & 255, ga = (num >> 8) & 255, ba = num & 255,
-                    amt = Math.round(2.55 * ratio),
-                    R = ((num >> 16) & 255) + amt,
-                    G = ((num >> 8) & 255) + amt,
-                    B = (num & 255) + amt;
-                gradientBackgroundCache[color] = "linear-gradient(to top, rgba(" + ra + "," + ga + "," + ba + ",0.8) 0%, rgba(" + R + "," + G + "," + B + ",0.8) 100%)";
+    }])
+    .filter('gradientColor', ['ColorService', function(ColorService) {
+        return function(originalHex) {
+            if (!gradientCache[originalHex]) {
+                // Shift the color hue by hOffset in one direction and if the color is darker try hOffset in the other direction
+                var originalRgb = ColorService.hexToRgb(originalHex);
+                var shiftH = function(originalH, targetS, targetL, hOffset) {
+                    var targetH = originalH + hOffset;
+                    targetH = ColorService.normalizeH(targetH);
+                    var tempRgb = ColorService.hslToRgb(targetH, targetS, targetL);
+                    if (ColorService.brightness(tempRgb) < ColorService.brightness(originalRgb)) {
+                        targetH = originalH - hOffset;
+                        targetH = ColorService.normalizeH(targetH);
+                    }
+                    return targetH;
+                };
+                var originalHsl = ColorService.rgbToHsl(originalRgb);
+                // Target S
+                var targetS = originalHsl[1];
+                // Target L
+                var lOffset = originalHex === '#ffcc01' ? 0.01 : 0.05; // Hack to preserve task yellow
+                var targetL = originalHsl[2] + lOffset;
+                if (targetL > 1) {
+                    targetL = originalHsl[2] - lOffset;
+                }
+                // Target H
+                var hOffset = 7;
+                var targetH = shiftH(originalHsl[0], targetS, targetL, hOffset);
+                // Target RGB
+                var targetRgb = ColorService.hslToRgb(targetH, targetS, targetL);
+                gradientCache[originalHex] = ColorService.rgbToHex(targetRgb);
             }
-            // The background image gets overriden by css if table, border is overriden if post-it
-            return {'background-image': gradientBackgroundCache[color], 'border-left': "10px solid " + color};
+            return gradientCache[originalHex];
         };
-    })
+    }])
+    .filter('createGradientBackground', ['gradientColorFilter', function(gradientColorFilter) {
+        return function(originalHex) {
+            return {
+                'background-image': 'linear-gradient(to top, ' + originalHex + ' 0%, ' + gradientColorFilter(originalHex) + ' 100%)'
+            };
+        };
+    }])
+    .filter('createShadow', ['ColorService', function(ColorService) {
+        return function(originalHex) {
+            var originalRgb = ColorService.hexToRgb(originalHex);
+            return {
+                'box-shadow': '0px 42px 48px 0px rgba(' + originalRgb[0] + ',' + originalRgb[1] + ',' + originalRgb[2] + ', 0.2)'
+            };
+        };
+    }])
     .filter('actorTag', ['$state', 'ContextService', function($state, ContextService) {
         return function(description, actors) {
             var contextUrl = $state.href($state.current.name, $state.params);
@@ -242,52 +284,50 @@ filters
                 }
                 var icon;
                 switch (ext) {
-                    case 'xls':
-                    case 'csv':
-                    case 'xlsx':
-                        icon = 'file-excel-o';
-                        break;
-                    case 'pdf':
-                        icon = 'file-pdf-o';
-                        break;
-                    case 'txt':
-                        icon = 'file-text-o';
-                        break;
                     case 'doc':
                     case 'docx':
-                        icon = 'file-word-o';
+                        icon = 'attachment-type-docx';
+                        break;
+                    case 'xls':
+                    case 'xlsx':
+                        icon = 'attachment-type-xlsx';
                         break;
                     case 'ppt':
                     case 'pptx':
-                        icon = 'file-powerpoint-o';
+                        icon = 'attachment-type-pptx';
                         break;
-                    case 'zip':
-                    case 'rar':
-                    case 'gz':
-                    case 'gzip':
-                        icon = 'file-archive-o';
+                    case 'pdf':
+                        icon = 'attachment-type-pdf';
+                        break;
+                    case 'psd':
+                        icon = 'attachment-type-psd';
+                        break;
+                    case 'ai':
+                        icon = 'attachment-type-ai';
+                        break;
+                    case 'idml':
+                        icon = 'attachment-type-idml';
                         break;
                     case 'png':
                     case 'gif':
                     case 'jpg':
                     case 'jpeg':
+                    case 'svg':
                     case 'bmp':
-                        icon = 'file-image-o';
+                        icon = 'attachment-type-picture';
                         break;
                     case 'mp3':
                     case 'wave':
                     case 'aac':
-                        icon = 'file-audio-o';
-                        break;
                     case 'avi':
                     case 'flv':
                     case 'mp4':
                     case 'mpg':
                     case 'mpeg':
-                        icon = 'file-movie-o';
+                        icon = 'attachment-type-media';
                         break;
                     default :
-                        icon = 'file-o';
+                        icon = 'attachment-type-default attachment-type-' + ext;
                 }
                 return icon;
             }
@@ -298,20 +338,17 @@ filters
             return items.slice().reverse();
         };
     })
-    .filter('permalink', ['$rootScope', 'Session', function($rootScope, Session) {
-        return function(uid, type, projectKey) {
-            var prefixByType = {
-                story: '',
-                feature: 'F',
-                task: 'T'
-            };
-            return $rootScope.serverUrl + '/' + (projectKey ? projectKey : $rootScope.getProjectFromState().pkey) + '-' + prefixByType[type] + uid;
+    .filter('workspaceUrl', ['$rootScope', 'WorkspaceType', function($rootScope, WorkspaceType) {
+        return function(workspaceType, workspaceKey, viewName) {
+            var workspacePath = workspaceType === WorkspaceType.PORTFOLIO ? 'f' : 'p';
+            return $rootScope.serverUrl + '/' + workspacePath + '/' + workspaceKey + '/' + (viewName ? "#/" + viewName : '');
         };
     }])
-    .filter('projectUrl', ['$rootScope', function($rootScope) {
-        return function(projectKey) {
-            return $rootScope.serverUrl + '/p/' + projectKey + '/';
-        };
+    .filter('projectUrl', ['workspaceUrlFilter', 'WorkspaceType', function(workspaceUrlFilter, WorkspaceType) {
+        return _.bind(workspaceUrlFilter, null, WorkspaceType.PROJECT);
+    }])
+    .filter('portfolioUrl', ['workspaceUrlFilter', 'WorkspaceType', function(workspaceUrlFilter, WorkspaceType) {
+        return _.bind(workspaceUrlFilter, null, WorkspaceType.PORTFOLIO);
     }])
     .filter('flowFilesNotCompleted', function() {
         return function(items) {
@@ -450,16 +487,6 @@ filters
             return disallowed.indexOf('<' + $1.toLowerCase() + '>') > -1 ? ' ' : $0;
         });
     }
-}]).filter('truncateAndSeeMore', ['$rootScope', '$filter', function($rootScope, $filter) {
-    return function(text, key, length, url) {
-        var filteredText = $filter('stripTags')(text, '<br><p>');
-        var limit = length ? length : 350;
-        if (filteredText.length > limit) {
-            var permalink = $rootScope.serverUrl + '/p/' + key + (url ? url : '');
-            filteredText = $filter('ellipsis')(filteredText, limit, '&hellip;') + ' <a href="' + permalink + '">' + $rootScope.message('todo.is.ui.more') + '</a>';
-        }
-        return filteredText;
-    }
 }]).filter('allMembers', [function() {
     return function(project) {
         return _.unionBy(project.team.members, project.productOwners, 'id');
@@ -484,21 +511,21 @@ filters
     return function(object, defaultObject) {
         return _.merge(object, defaultObject);
     }
-}]).filter('taskStateIcon', ['TaskStatesByName', function(TaskStatesByName) {
+}]).filter('acceptanceTestIcon', ['AcceptanceTestStatesByName', function(AcceptanceTestStatesByName) {
     return function(state) {
-        var iconByState = 'fa-hourglass-';
+        var icon = 'acceptance-test-icon acceptance-test-icon-';
         switch (state) {
-            case TaskStatesByName.TODO:
-                iconByState += 'start';
+            case AcceptanceTestStatesByName.TOCHECK:
+                icon += 'tocheck';
                 break;
-            case TaskStatesByName.IN_PROGRESS:
-                iconByState += 'half';
+            case AcceptanceTestStatesByName.FAILED:
+                icon += 'failed';
                 break;
-            case TaskStatesByName.DONE:
-                iconByState += 'end';
+            case AcceptanceTestStatesByName.SUCCESS:
+                icon += 'success';
                 break;
         }
-        return iconByState;
+        return icon;
     }
 }]).filter('sprintStateColor', ['SprintStatesByName', function(SprintStatesByName) {
     return function(state, prefix) {
@@ -571,9 +598,9 @@ filters
         return $rootScope.message(boolean ? 'is.yes' : 'is.no');
     }
 }]).filter('visibleMenuElement', function() {
-    return function(menus, item) {
+    return function(menus, item, viewType) {
         return _.filter(menus, function(menuElement) {
-            return menuElement.visible(item);
+            return menuElement.visible(item, viewType);
         })
     };
 }).filter('contextIcon', function() {
@@ -597,7 +624,7 @@ filters
     }
 }).filter('countAndRemaining', function() {
     return function(story) {
-        return story.tasks_count ? '(' + story.tasks_count + (story.totalRemainingTime ? ' - ' + story.totalRemainingTime + ' <i class="fa fa-hourglass fa-small"></i>' : '') + ')' : '';
+        return story.tasks_count ? '(' + story.tasks_count + (story.totalRemainingTime ? ' - ' + story.totalRemainingTime : '') + ')' : '';
     }
 }).filter('ellipsis', ['limitToFilter', function(limitToFilter) {
     return function(text, limit, moreSign) {
@@ -619,5 +646,34 @@ filters
 }).filter('followedByUser', ['Session', function(Session) {
     return function(story, returnIfTrue, returnIfFalse) {
         return Session.user ? (_.find(story.followers_ids, {id: Session.user.id}) ? (returnIfTrue ? returnIfTrue : true) : (returnIfFalse ? returnIfFalse : false)) : (returnIfFalse ? returnIfFalse : false);
+    }
+}]).filter('message', ['I18nService', function(I18nService) {
+    return I18nService.message;
+}]).filter('idSizeClass', function() {
+    return function(item) {
+        if (!item || item.uid < 99) {
+            return '';
+        } else if (item.uid > 999) {
+            return 'id-size-xs';
+        } else {
+            return 'id-size-sm';
+        }
+    }
+}).filter('relevantMeetings', function() {
+    return function(meetings, subject) {
+        if (meetings) {
+            var filter = {endDate: null};
+            if (subject.class !== 'Project' && subject.class !== 'Portfolio') {
+                filter.subjectId = subject.id;
+                filter.subjectType = subject.class.toLowerCase();
+            }
+            return _.filter(meetings, filter);
+        } else {
+            return []
+        }
+    }
+}).filter('imageByScheme', ['$rootScope', function($rootScope) {
+    return function(imageUrl) {
+        return $rootScope.getColorScheme() === 'dark' ? imageUrl.dark : imageUrl.light;
     }
 }]);

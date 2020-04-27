@@ -26,6 +26,7 @@ services.factory('User', ['Resource', function($resource) {
 }]);
 
 services.service("UserService", ['User', '$http', '$rootScope', '$injector', 'FormService', function(User, $http, $rootScope, $injector, FormService) {
+    var self = this;
     this.getActivities = function(user) {
         return User.query({action: 'activities', id: user.id}).$promise;
     };
@@ -37,7 +38,9 @@ services.service("UserService", ['User', '$http', '$rootScope', '$injector', 'Fo
     };
     this.update = function(user) {
         user.class = 'user';
-        return user.$update();
+        return User.update(user).$promise.then(function(updatedUser) {
+            _.merge(user, updatedUser);
+        });
     };
     this.save = function(user) {
         user.class = 'user';
@@ -52,17 +55,14 @@ services.service("UserService", ['User', '$http', '$rootScope', '$injector', 'Fo
     this.acceptInvitations = function(token) {
         return FormService.httpGet('user/acceptInvitations', {params: {token: token}}, true);
     };
-    this.updateMenuPreferences = function(info) {
+    this.updateMenuPreferences = function(menuPreferences) {
         var Session = $injector.get('Session');
-        return $http({
-            url: $rootScope.serverUrl + '/user/' + Session.user.id + '/menu',
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
-            transformRequest: function(data) {
-                return FormService.formObjectData(data, '');
-            },
-            data: info
-        });
+        return FormService.httpPost('user/' + Session.user.id + '/menu', menuPreferences , true)
+    };
+    this.updateColorScheme = function(colorScheme) {
+        var Session = $injector.get('Session');
+        Session.user.preferences.colorScheme = colorScheme;
+        return self.update(Session.user);
     };
     this.search = function(term, invite, project) {
         var params = {term: term};

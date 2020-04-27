@@ -21,49 +21,41 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="task.new.html">
-<div class="panel panel-light">
-    <div class="panel-heading">
-        <h3 class="panel-title row">
-            <div class="left-title">
-                <i class="fa fa-file" ng-style="{color: task.color ? task.color : '#f9f157' }"></i>
+<div class="card">
+    <div class="details-header">
+        <details-layout-buttons remove-ancestor="true"/>
+    </div>
+    <div class="card-header">
+        <div class="card-title">
+            <div class="details-title">
                 <span class="item-name" title="${message(code: 'todo.is.ui.task.new')}">${message(code: 'todo.is.ui.task.new')}</span>
             </div>
-            <div class="right-title">
-                <details-layout-buttons ng-if="!isModal" remove-ancestor="true"/>
-            </div>
-        </h3>
-    </div>
-    <div class="details-no-tab">
-        <div class="panel-body">
-            <div class="help-block">
-                ${message(code: 'is.ui.task.help')}
-                <documentation doc-url="features-stories-tasks#tasks"/>
-            </div>
-            <div class="postits standalone">
-                <div class="postit-container solo">
-                    <div ng-style="'#f9f157' | createGradientBackground"
-                         class="postit postit-sm {{ ('#f9f157' | contrastColor) }}">
-                        <div class="head">
-                            <div class="head-left">
-                                <span class="id">42</span>
-                            </div>
-                        </div>
-                        <div class="content">
-                            <h3 class="title">{{ task.name }}</h3>
-                        </div>
-                        <div class="tags"></div>
-                        <div class="actions">
-                            <span class="action"><a><i class="fa fa-paperclip"></i></a></span>
-                            <span class="action"><a><i class="fa fa-comment"></i></a></span>
-                            <span class="action"><a><i class="fa fa-ellipsis-h"></i></a></span>
-                        </div>
+        </div>
+        <div class="form-text">
+            ${message(code: 'is.ui.task.help')}
+            <documentation doc-url="features-stories-tasks#tasks"/>
+        </div>
+        <div class="sticky-notes sticky-notes-standalone grid-group">
+            <div class="sticky-note-container sticky-note-task">
+                <div sticky-note-color-watch="#ffcc01"
+                     class="sticky-note">
+                    <div class="sticky-note-head">
+                        <span class="id">42</span>
+                    </div>
+                    <div class="sticky-note-content">
+                        <div class="item-values"></div>
+                        <div class="title">{{ task.name }}</div>
                     </div>
                 </div>
             </div>
-            <form ng-submit="save(task, false)"
-                  name='formHolder.taskForm'
-                  novalidate>
-                <div class="clearfix no-padding">
+        </div>
+    </div>
+    <div class="details-no-tab">
+        <form ng-submit="save(task, false)"
+              name='formHolder.taskForm'
+              novalidate>
+            <div class="card-body">
+                <div class="row is-form-row">
                     <div class="form-half">
                         <label for="name">${message(code: 'is.task.name')}</label>
                         <input required
@@ -72,6 +64,7 @@
                                ng-model="task.name"
                                type="text"
                                class="form-control"
+                               autocomplete="off"
                                ng-disabled="!authorizedTask('create')"
                                placeholder="${message(code: 'is.ui.task.noname')}"/>
                     </div>
@@ -94,7 +87,9 @@
                         </ui-select>
                     </div>
                 </div>
-                <div ng-if="authorizedTask('create')" class="btn-toolbar pull-right">
+            </div>
+            <div class="card-footer" ng-if="authorizedTask('create')" >
+                <div class="btn-toolbar">
                     <button class="btn btn-primary"
                             ng-disabled="formHolder.taskForm.$invalid || application.submitting"
                             defer-tooltip="${message(code: 'todo.is.ui.create.and.continue')} (SHIFT+RETURN)"
@@ -111,8 +106,8 @@
                         ${message(code: 'default.button.create.label')}
                     </button>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 </div>
 </script>

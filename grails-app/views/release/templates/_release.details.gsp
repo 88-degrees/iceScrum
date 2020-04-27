@@ -22,89 +22,87 @@
 - Colin Bontemps (cbontemps@kagilum.com)
 --}%
 <script type="text/ng-template" id="release.details.html">
-<div class="panel panel-light"
+<div class="card"
      flow-init
      flow-drop
      flow-files-submitted="attachmentQuery($flow, release)"
      flow-drop-enabled="authorizedRelease('upload', release)"
-     flow-drag-enter="dropClass='panel panel-light drop-enabled'"
-     flow-drag-leave="dropClass='panel panel-light'"
+     flow-drag-enter="dropClass='card drop-enabled'"
+     flow-drag-leave="dropClass='card'"
      ng-class="authorizedRelease('upload', release) && dropClass">
-    <div class="panel-heading">
-        <h3 class="panel-title row">
-            <div class="left-title">
-                <i class="fa fa-calendar"></i>
+    <div class="details-header">
+        <a ng-if="previousRelease"
+           class="btn btn-icon"
+           role="button"
+           tabindex="0"
+           hotkey="{'left': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.previous')}"
+           uib-tooltip="${message(code: 'is.ui.backlogelement.toolbar.previous')} (&#xf060;)"
+           ui-sref=".({releaseId: previousRelease.id})">
+            <span class="icon icon-caret-left"></span>
+        </a>
+        <a class="btn btn-icon"
+           ng-class="nextRelease ? 'visible' : 'invisible'"
+           role="button"
+           tabindex="0"
+           hotkey="{'right': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.next')}"
+           uib-tooltip="${message(code: 'is.ui.backlogelement.toolbar.next')} (&#xf061;)"
+           ui-sref=".({releaseId: nextRelease.id})">
+            <span class="icon icon-caret-right"></span>
+        </a>
+        <details-layout-buttons remove-ancestor="removeReleaseAncestorOnClose"/>
+    </div>
+    <div class="card-header">
+        <div class="card-title">
+            <div class="details-title">
                 <span class="item-name" title="{{ release.name }}">{{ release.name }}</span>
-                <entry:point id="release-details-left-title"/>
             </div>
-            <div class="right-title">
-                <div style="margin-bottom:10px">
-                    <entry:point id="release-details-right-title"/>
-                    <div class="btn-group">
-                        <a ng-if="previousRelease"
-                           class="btn btn-default"
-                           role="button"
-                           tabindex="0"
-                           hotkey="{'left': hotkeyClick}"
-                           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.previous')}"
-                           defer-tooltip="${message(code: 'is.ui.backlogelement.toolbar.previous')} (&#xf060;)"
-                           ui-sref=".({releaseId: previousRelease.id})">
-                            <i class="fa fa-caret-left"></i>
-                        </a>
-                        <a ng-if="nextRelease"
-                           class="btn btn-default"
-                           role="button"
-                           tabindex="0"
-                           hotkey="{'right': hotkeyClick}"
-                           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.next')}"
-                           defer-tooltip="${message(code: 'is.ui.backlogelement.toolbar.next')} (&#xf061;)"
-                           ui-sref=".({releaseId: nextRelease.id})">
-                            <i class="fa fa-caret-right"></i>
-                        </a>
-                    </div>
-                    <details-layout-buttons ng-if="!isModal" remove-ancestor="removeReleaseAncestorOnClose"/>
-                </div>
+            <div class="btn-toolbar">
                 <g:set var="formats" value="${is.exportFormats(entryPoint: 'releaseDetails')}"/>
                 <g:if test="${formats}">
-                    <div class="btn-group hidden-xs" uib-dropdown ng-if="authenticated()">
-                        <button class="btn btn-default"
+                    <div class="btn-group" uib-dropdown ng-if="authenticated()">
+                        <button class="btn btn-secondary btn-sm"
                                 uib-dropdown-toggle type="button">
-                            <span defer-tooltip="${message(code: 'todo.is.ui.export')}"><i class="fa fa-download"></i>&nbsp;<i class="fa fa-caret-down"></i></span>
+                            <span defer-tooltip="${message(code: 'todo.is.ui.export')}"><i class="fa fa-download"></i></span>
                         </button>
-                        <ul uib-dropdown-menu
-                            class="pull-right"
-                            role="menu">
+                        <div uib-dropdown-menu
+                             class="dropdown-menu-right"
+                             role="menu">
                             <g:each in="${formats}" var="format">
-                                <li role="menuitem">
-                                    <a href="${format.onlyJsClick ? '' : (format.resource ?: 'story') + '/release/{{ ::release.id }}/' + (format.action ?: 'print') + '/' + (format.params.format ?: '')}"
-                                       ng-click="${format.jsClick ? format.jsClick : 'print'}($event)">${format.name}</a>
-                                </li>
+                                <a role="menuitem"
+                                   class="dropdown-item"
+                                   href="${format.onlyJsClick ? '' : (format.resource ?: 'story') + '/release/{{ ::release.id }}/' + (format.action ?: 'print') + '/' + (format.params.format ?: '')}"
+                                   ng-click="${format.jsClick ? format.jsClick : 'print'}($event)">${format.name}</a>
                             </g:each>
-                        </ul>
+                        </div>
                     </div>
                 </g:if>
-                <div class="btn-group shortcut-menu" role="group">
-                    <shortcut-menu ng-model="release" model-menus="menus" view-type="'details'"></shortcut-menu>
-                    <div ng-class="['btn-group dropdown', {'dropup': application.minimizedDetailsView}]" uib-dropdown>
-                        <button type="button" class="btn btn-default" uib-dropdown-toggle>
-                            <i ng-class="['fa', application.minimizedDetailsView ? 'fa-caret-up' : 'fa-caret-down']"></i>
-                        </button>
-                        <ul uib-dropdown-menu class="pull-right" ng-init="itemType = 'release'" template-url="item.menu.html"></ul>
-                    </div>
+                <div class="btn-menu" uib-dropdown>
+                    <shortcut-menu ng-model="release" model-menus="menus" view-type="'details'" btn-sm="true"></shortcut-menu>
+                    <div uib-dropdown-toggle></div>
+                    <div uib-dropdown-menu ng-init="itemType = 'release'; viewType = 'details'" template-url="item.menu.html"></div>
                 </div>
             </div>
-        </h3>
+        </div>
         <visual-states ng-model="release" model-states="releaseStatesByName"/>
     </div>
-    <ul class="nav nav-tabs nav-tabs-is nav-justified disable-active-link" ng-if="$state.current.data.displayTabs">
-        <li role="presentation" ng-class="{'active':!$state.params.releaseTabId}">
-            <a href="{{ tabUrl() }}">
-                <i class="fa fa-lg fa-edit"></i> ${message(code: 'todo.is.ui.details')}
+    <ul class="nav nav-tabs nav-justified disable-active-link" ng-if="$state.current.data.displayTabs">
+        <li role="presentation"
+            class="nav-item">
+            <a href="{{ tabUrl() }}"
+               class="nav-link"
+               ng-class="{'active':!$state.params.releaseTabId}">
+                ${message(code: 'todo.is.ui.details')}
             </a>
         </li>
-        <li role="presentation" ng-if="authorizedTimeboxNotes()" ng-class="{'active':$state.params.releaseTabId == 'notes'}">
-            <a href="{{ tabUrl('notes') }}">
-                <i class="fa fa-lg fa-newspaper-o"></i> ${message(code: 'todo.is.ui.release.notes')}
+        <li role="presentation"
+            ng-if="authorizedTimeboxNotes()"
+            class="nav-item">
+            <a href="{{ tabUrl('notes') }}"
+               class="nav-link"
+               ng-class="{'active':$state.params.releaseTabId == 'notes'}">
+                ${message(code: 'todo.is.ui.release.notes')}
             </a>
         </li>
         <entry:point id="release-details-tab-button"/>

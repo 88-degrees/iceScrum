@@ -22,8 +22,7 @@
 --}%
 <script type="text/ng-template" id="user.invitation.html">
 <is:modal title="${message(code: 'is.ui.user.invitation.title')}"
-          footer="${false}"
-          size="md">
+          footer="${false}">
     <div ng-if="invitationEntries">
         <p ng-bind-html="message('is.ui.user.invitation.congrats', [invitedEmailAddress])">
         </p>
@@ -37,14 +36,14 @@
                 ${message(code: 'is.ui.user.invitation.loggedin')} (<em>{{ currentEmailAddress }}</em>)
             </p>
             <div class="btn-toolbar">
-                <button class="btn btn-primary pull-right"
+                <button class="btn btn-primary float-right"
                         ng-disabled="application.submitting"
                         ng-click="acceptInvitations()"
                         hotkey="{'return': hotkeyClick }"
                         type="button">
                     ${message(code: 'is.ui.user.invitation.accept')}
                 </button>
-                <button class="btn btn-default pull-right"
+                <button class="btn btn-secondary float-right"
                         ng-disabled="application.submitting"
                         ng-click="$close()"
                         type="button">
@@ -57,14 +56,14 @@
                 ${message(code: 'is.ui.user.invitation.notloggedin')}
             </p>
             <div class="btn-toolbar">
-                <button class="btn btn-primary pull-right"
+                <button class="btn btn-primary float-right"
                         ng-disabled="application.submitting"
-                        ng-click="register()"
+                        ng-click="$close(true)"
                         hotkey="{'return': hotkeyClick }"
                         type="button">
                     ${message(code: 'is.ui.user.invitation.create')}
                 </button>
-                <button class="btn btn-default pull-right"
+                <button class="btn btn-secondary float-right"
                         ng-disabled="application.submitting"
                         ng-click="logIn()"
                         type="button">

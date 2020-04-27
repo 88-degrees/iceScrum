@@ -23,31 +23,22 @@
 --}%
 <script type="text/ng-template" id="form.general.portfolio.html">
 <h4>${message(code: "is.dialog.wizard.section.portfolio")}</h4>
-<p class="help-block">${message(code: 'is.ui.portfolio.help.general')}</p>
+<p class="form-text">${message(code: 'is.ui.portfolio.help.general')}</p>
 <entry:point id="portfolio-form-general-before"/>
 <div class="row">
-    <div class="col-sm-8 col-xs-8 form-group">
+    <div class="form-2-tiers">
         <label for="name">${message(code: 'is.portfolio.name')}</label>
-        <div class="input-group">
-            <input autofocus
-                   name="name"
-                   type="text"
-                   class="form-control"
-                   placeholder="${message(code: 'is.ui.portfolio.noname')}"
-                   ng-model="portfolio.name"
-                   ng-change="nameChanged()"
-                   ng-required="isCurrentStep(1, 'portfolio')">
-            <span class="input-group-btn">
-                <button class="btn btn-hidden"
-                        type="button"
-                        disabled="disabled">
-                    <i class="fa fa-eye-slash"></i>
-                    ${g.message(code: 'is.ui.workspace.hidden')}
-                </button>
-            </span>
-        </div>
+        <input autofocus
+               name="name"
+               type="text"
+               class="form-control"
+               autocomplete="off"
+               placeholder="${message(code: 'is.ui.portfolio.noname')}"
+               ng-model="portfolio.name"
+               ng-change="nameChanged()"
+               ng-required="isCurrentStep(1, 'portfolio')">
     </div>
-    <div class="col-sm-4 col-xs-4 form-group">
+    <div class="form-1-tier">
         <label for="fkey">${message(code: 'is.portfolio.fkey')}</label>
         <input name="fkey"
                type="text"
@@ -58,13 +49,25 @@
                ng-pattern="/^[A-Z0-9]*[A-Z][A-Z0-9]*$/"
                pattern-error-message="${message(code: 'portfolio.fkey.matches.invalid')}"
                ng-required="isCurrentStep(1, 'portfolio')"
+               autocomplete="off"
                ng-maxlength="10"
                ng-remote-validate-code="portfolio.fkey.unique"
                ng-remote-validate="{{ checkPortfolioPropertyUrl }}/fkey">
     </div>
 </div>
 <div class="row">
-    <div class="col-sm-12 form-group">
+    <div class="col form-group">
+        <label for="framework">${message(code: 'is.portfolio.framework')}</label>
+        <div>
+            <div class="btn-group">
+                <label class="btn btn-primary" ng-model="portfolio.framework" uib-btn-radio="'DEFAULT'">${message(code: 'is.ui.portfolio.default')}</label>
+                <label class="btn btn-primary" ng-model="portfolio.framework" uib-btn-radio="'SAFE'">SAFe</label>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col form-group">
         <label for="description">${message(code: 'is.portfolio.description')}</label>
         <textarea at
                   is-markitup
@@ -75,7 +78,7 @@
                   ng-show="showDescriptionTextarea"
                   ng-blur="delayCall(toggleDescription, [false])"
                   is-model-html="portfolio.description_html"></textarea>
-        <div class="markitup-preview"
+        <div class="markitup-preview form-control"
              tabindex="0"
              ng-show="!showDescriptionTextarea"
              ng-click="toggleDescription(true)"

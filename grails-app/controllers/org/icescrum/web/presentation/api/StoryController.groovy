@@ -86,6 +86,18 @@ class StoryController implements ControllerErrorHandler {
         render(status: 200, contentType: 'application/json', text: returnData as JSON)
     }
 
+    @Secured(['stakeHolder() or inProject()'])
+    def uid(int uid, long project) {
+        Project _project = Project.withProject(project)
+        Story story = Story.findByBacklogAndUid(_project, uid)
+        if (story) {
+            params.id = story.id.toString()
+            forward(action: "show")
+        } else {
+            render(status: 404)
+        }
+    }
+
     @Secured(['isAuthenticated() && (stakeHolder() or inProject()) and !archivedProject()'])
     def save(long project) {
         def storyParams = params.story
@@ -99,21 +111,22 @@ class StoryController implements ControllerErrorHandler {
             def propertiesToBind = ['name', 'description', 'notes', 'type', 'affectVersion', 'feature', 'dependsOn', 'value', 'origin']
             Project _project = Project.withProject(project)
             entry.hook(id: 'story-before-save', model: [story: story, propertiesToBind: propertiesToBind, project: _project])
-            def tasks = storyParams.remove('tasks')
-            def acceptanceTests = storyParams.remove('acceptanceTests')
+            def tasksParams = storyParams.remove('tasks')
+            def acceptanceTestsParams = storyParams.remove('acceptanceTests')
             bindData(story, storyParams, [include: propertiesToBind])
             User user = (User) springSecurityService.currentUser
             storyService.save(story, _project, user)
             story.tags = storyParams.tags instanceof String ? storyParams.tags.split(',') : (storyParams.tags instanceof String[] || storyParams.tags instanceof List) ? storyParams.tags : null
-            tasks.each {
+            tasksParams.each { taskParams ->
                 def task = new Task()
-                bindData(task, it, [include: ['color', 'description', 'estimation', 'name', 'notes', 'tags']])
+                bindData(task, taskParams, [include: ['color', 'description', 'estimation', 'name', 'notes']])
                 story.addToTasks(task)
                 taskService.save(task, user)
+                task.tags = tasksParams.tags instanceof String ? tasksParams.tags.split(',') : (tasksParams.tags instanceof String[] || tasksParams.tags instanceof List) ? tasksParams.tags : null
             }
-            acceptanceTests.each {
+            acceptanceTestsParams.each { acceptanceTestParams ->
                 def acceptanceTest = new AcceptanceTest()
-                bindData(acceptanceTest, it, [include: ['description', 'name']])
+                bindData(acceptanceTest, acceptanceTestParams, [include: ['description', 'name']])
                 acceptanceTestService.save(acceptanceTest, story, user)
             }
             if (storyParams.state && storyParams.state.toInteger() == Story.STATE_ACCEPTED && request.productOwner) {
@@ -250,7 +263,7 @@ class StoryController implements ControllerErrorHandler {
         Project _project = Project.withProject(project)
         Story story = Story.findByBacklogAndUid(_project, uid)
         if (story) {
-            redirect(uri: "/p/$_project.pkey/#/" + getStoryHash(story))
+            redirect(uri: "/p/$_project.pkey/#/" + getStoryHash(story) + (params.tab ? '/' + params.tab : ''))
         } else {
             redirect(controller: 'errors', action: 'error404')
         }
@@ -348,6 +361,18 @@ class StoryController implements ControllerErrorHandler {
     }
 
     @Secured(['productOwner() and !archivedProject()'])
+    def shiftRankInList() {
+        List<Story> stories = Story.withStories(params).sort { it.rank }
+        Story story = stories.find { it.id == params.story.id.toLong() }
+        Integer index = params.index.toInteger()
+        Story.withTransaction {
+            storyService.shiftRankInList(stories, story, index)
+        }
+        def returnData = stories.size() > 1 ? stories : stories.first()
+        render(status: 200, contentType: 'application/json', text: returnData as JSON)
+    }
+
+    @Secured(['productOwner() and !archivedProject()'])
     def returnToSandbox() {
         def stories = Story.withStories(params)
         def rank
@@ -402,7 +427,7 @@ class StoryController implements ControllerErrorHandler {
         def terms = params.term?.tokenize()?.findAll { it.size() >= 5 }
         if (terms) {
             stories = Story.search(_project.id, [story: [term: terms], list: [max: 3]]).collect {
-                "<a href='${createLink(absolute: true, action: 'permalink', params: [project: _project.pkey, uid: it.uid])}'>$it.name</a>"
+                "<strong><a href='${it.permalink}'>$it.name</a></strong>"
             }
         }
         render(status: 200, text: stories ? message(code: 'is.ui.story.duplicate') + ' ' + stories.join(" or ") : "")
@@ -464,7 +489,9 @@ class StoryController implements ControllerErrorHandler {
         def projectStories = _project.stories;
         def groupedStories = [:]
         if (field == "effort") {
-            groupedStories = projectStories.groupBy { it.effort }
+            groupedStories = projectStories.groupBy {
+                it.effort != null ? new BigDecimal(it.effort) : null // Hack: Normalize scale because BigDecimal 'equals' compares by value AND scale. Just after updating an effort it may have 0 digit while others have 2 digits -> 2 entries, one for 3 and one for 3.00
+            }
         } else if (field == "value") {
             groupedStories = projectStories.groupBy { it.value }
         }
@@ -559,7 +586,7 @@ class StoryController implements ControllerErrorHandler {
                     creator       : it.creator.firstName + ' ' + it.creator.lastName,
                     feature       : it.feature?.name ?: null,
                     dependsOn     : it.dependsOn?.name ? it.dependsOn.uid + " " + it.dependsOn.name : null,
-                    permalink     : createLink(absolute: true, uri: '/' + _project.pkey + '-' + it.uid),
+                    permalink     : it.permalink,
                     featureColor  : it.feature?.color ?: null,
                     nbTestsTocheck: testsByState[AcceptanceTest.AcceptanceTestState.TOCHECK],
                     nbTestsFailed : testsByState[AcceptanceTest.AcceptanceTestState.FAILED],

@@ -23,28 +23,6 @@
  *
  */
 
-// Try to detect as early as possible that the root misses as slash
-// to trigger a redirect and lose as little time as possible
-(function() {
-    var fullPath = window.location.href;
-    if (fullPath.indexOf('#') != -1 && !_.endsWith(window.location.pathname, '/')) {
-        fullPath = window.location.origin + window.location.pathname + '/' + window.location.hash;
-        window.location.replace(fullPath);
-        throw new Error("Stopping page loading because a forward slash is missing before #, redirecting to the proper URL " + fullPath + '...');
-    }
-    if (window.location.hash == '') {
-        if (fullPath[fullPath.length - 1] != '/' && fullPath.indexOf('/?') == -1) {
-            if (fullPath.indexOf('?') > -1) {
-                fullPath = fullPath.replace('?', '/?');
-            } else {
-                fullPath = fullPath + '/'
-            }
-            window.location.replace(fullPath);
-            throw new Error("Stopping page loading because the trailing forward slash is missing, redirecting to the proper URL " + fullPath + '...');
-        }
-    }
-})();
-
 angular.module('isCore', ['ui.router'])
     .provider('controllerHooks', function() {
         this.$get = angular.noop;
@@ -88,27 +66,44 @@ angular.module('isCore', ['ui.router'])
             }
         };
     })
-    .provider('projectCaches', function() {
+    .provider('workspaceCacheConfigs', function() {
         this.$get = function() {
-            return this.projectCaches;
+            return this.workspaceCacheConfigs;
         };
-        this.projectCaches = {
-            story: {
-                arrayName: 'stories',
-                projectPath: 'backlog'
+        this.workspaceCacheConfigs = {
+            project: {
+                story: {
+                    arrayName: 'stories',
+                    workspacePath: 'backlog'
+                },
+                feature: {
+                    arrayName: 'features',
+                    workspacePath: 'backlog',
+                    sort: 'rank'
+                },
+                release: {
+                    arrayName: 'releases',
+                    workspacePath: 'parentProject'
+                },
+                backlog: {
+                    arrayName: 'backlogs',
+                    workspacePath: 'project'
+                },
+                meeting: {
+                    arrayName: 'meetings',
+                    workspacePath: 'project'
+                }
             },
-            feature: {
-                arrayName: 'features',
-                projectPath: 'backlog',
-                sort: 'rank'
-            },
-            release: {
-                arrayName: 'releases',
-                projectPath: 'parentProject'
-            },
-            backlog: {
-                arrayName: 'backlogs',
-                projectPath: 'project'
+            portfolio: {
+                feature: {
+                    arrayName: 'features',
+                    workspacePath: 'portfolio',
+                    sort: 'rank' // TODO REMOVE PFV2
+                },
+                meeting: {
+                    arrayName: 'meetings',
+                    workspacePath: 'portfolio'
+                }
             }
         };
     })
@@ -128,34 +123,36 @@ angular.module('isCore', ['ui.router'])
             },
             task: {
                 details: {
-                    resolve: ['$stateParams', 'AttachmentService', 'detailsTask', 'project', function($stateParams, AttachmentService, detailsTask, project) {
+                    resolve: ['$stateParams', 'AttachmentService', 'WorkspaceType', 'detailsTask', 'project', function($stateParams, AttachmentService, WorkspaceType, detailsTask, project) {
                         if (!$stateParams.taskTabId) {
-                            return AttachmentService.list(detailsTask, project.id);
+                            return AttachmentService.list(detailsTask, project.id, WorkspaceType.PROJECT);
                         }
                     }]
                 },
                 comments: {
-                    resolve: ['$stateParams', 'CommentService', 'detailsTask', 'project', function($stateParams, CommentService, detailsTask, project) {
-                        if ($stateParams.taskTabId == 'comments') {
-                            return CommentService.list(detailsTask, project.id);
+                    resolve: ['$stateParams', '$rootScope', 'CommentService', 'WorkspaceType', 'detailsTask', 'project', function($stateParams, $rootScope, CommentService, WorkspaceType, detailsTask, project) {
+                        if ($stateParams.taskTabId == 'comments' || $rootScope.application.focusedDetailsView) {
+                            return CommentService.list(detailsTask, project.id, WorkspaceType.PROJECT);
                         }
                     }],
-                    templateUrl: 'comment.list.html'
+                    templateUrl: 'comment.list.html',
+                    focusTabCenter: true
                 },
                 activities: {
-                    resolve: ['$stateParams', 'ActivityService', 'detailsTask', 'project', function($stateParams, ActivityService, detailsTask, project) {
-                        if ($stateParams.taskTabId == 'activities') {
+                    resolve: ['$stateParams', '$rootScope', 'ActivityService', 'detailsTask', 'project', function($stateParams, $rootScope, ActivityService, detailsTask, project) {
+                        if ($stateParams.taskTabId == 'activities' || $rootScope.application.focusedDetailsView) {
                             return ActivityService.activities(detailsTask, false, project.id);
                         }
                     }],
-                    templateUrl: 'activity.list.html'
+                    templateUrl: 'activity.list.html',
+                    focusTabRight: true
                 }
             },
             story: {
                 details: {
-                    resolve: ['$stateParams', 'AttachmentService', 'detailsStory', 'project', function($stateParams, AttachmentService, detailsStory, project) {
+                    resolve: ['$stateParams', 'AttachmentService', 'WorkspaceType', 'detailsStory', 'project', function($stateParams, AttachmentService, WorkspaceType, detailsStory, project) {
                         if (!$stateParams.storyTabId) {
-                            return AttachmentService.list(detailsStory, project.id);
+                            return AttachmentService.list(detailsStory, project.id, WorkspaceType.PROJECT);
                         }
                     }]
                 },
@@ -178,9 +175,9 @@ angular.module('isCore', ['ui.router'])
                     focusTabRight: true
                 },
                 comments: {
-                    resolve: ['$stateParams', 'CommentService', 'detailsStory', 'project', function($stateParams, CommentService, detailsStory, project) {
+                    resolve: ['$stateParams', 'CommentService', 'WorkspaceType', 'detailsStory', 'project', function($stateParams, CommentService, WorkspaceType, detailsStory, project) {
                         if ($stateParams.storyTabId == 'comments') {
-                            return CommentService.list(detailsStory, project.id);
+                            return CommentService.list(detailsStory, project.id, WorkspaceType.PROJECT);
                         }
                     }],
                     templateUrl: 'comment.list.html'
@@ -196,19 +193,29 @@ angular.module('isCore', ['ui.router'])
             },
             feature: {
                 details: {
-                    resolve: ['$stateParams', 'AttachmentService', 'detailsFeature', 'project', function($stateParams, AttachmentService, detailsFeature, project) {
+                    resolve: ['$stateParams', 'AttachmentService', 'WorkspaceType', 'detailsFeature', 'project', function($stateParams, AttachmentService, WorkspaceType, detailsFeature, project) {
                         if (!$stateParams.featureTabId) {
-                            return AttachmentService.list(detailsFeature, project.id);
+                            return AttachmentService.list(detailsFeature, project.id, WorkspaceType.PROJECT);
                         }
                     }]
                 },
                 stories: {
-                    resolve: ['$stateParams', 'StoryService', 'detailsFeature', 'project', function($stateParams, StoryService, detailsFeature, project) {
-                        if ($stateParams.featureTabId == 'stories') {
+                    resolve: ['$stateParams', '$rootScope', 'StoryService', 'detailsFeature', 'project', function($stateParams, $rootScope, StoryService, detailsFeature, project) {
+                        if ($stateParams.featureTabId == 'stories' || $rootScope.application.focusedDetailsView) {
                             StoryService.listByType(detailsFeature, project.id);
                         }
                     }],
-                    templateUrl: 'nested.stories.html'
+                    templateUrl: 'nested.stories.html',
+                    focusTabRight: true
+                },
+                comments: {
+                    resolve: ['$stateParams', '$rootScope', 'CommentService', 'WorkspaceType', 'detailsFeature', 'project', function($stateParams, $rootScope, CommentService, WorkspaceType, detailsFeature, project) {
+                        if ($stateParams.featureTabId == 'comments' || $rootScope.application.focusedDetailsView) {
+                            return CommentService.list(detailsFeature, project.id, WorkspaceType.PROJECT);
+                        }
+                    }],
+                    templateUrl: 'comment.list.html',
+                    focusTabCenter: true
                 },
                 activities: {
                     resolve: ['$stateParams', 'ActivityService', 'detailsFeature', 'project', function($stateParams, ActivityService, detailsFeature, project) {
@@ -221,9 +228,9 @@ angular.module('isCore', ['ui.router'])
             },
             release: {
                 details: {
-                    resolve: ['$stateParams', 'AttachmentService', 'detailsRelease', 'project', function($stateParams, AttachmentService, detailsRelease, project) {
+                    resolve: ['$stateParams', 'AttachmentService', 'WorkspaceType', 'detailsRelease', 'project', function($stateParams, AttachmentService, WorkspaceType, detailsRelease, project) {
                         if (!$stateParams.releaseTabId) {
-                            return AttachmentService.list(detailsRelease, project.id);
+                            return AttachmentService.list(detailsRelease, project.id, WorkspaceType.PROJECT);
                         }
                     }]
                 },
@@ -238,9 +245,9 @@ angular.module('isCore', ['ui.router'])
             },
             sprint: {
                 details: {
-                    resolve: ['$stateParams', 'AttachmentService', 'detailsSprint', 'project', function($stateParams, AttachmentService, detailsSprint, project) {
+                    resolve: ['$stateParams', 'AttachmentService', 'WorkspaceType', 'detailsSprint', 'project', function($stateParams, AttachmentService, WorkspaceType, detailsSprint, project) {
                         if (!$stateParams.sprintTabId) {
-                            return AttachmentService.list(detailsSprint, project.id);
+                            return AttachmentService.list(detailsSprint, project.id, WorkspaceType.PROJECT);
                         }
                     }]
                 },
@@ -257,8 +264,31 @@ angular.module('isCore', ['ui.router'])
     })
     .provider('isState', ['itemTabsProvider', function(itemTabsProvider) {
         this.$get = angular.noop;
-        var getMainStateFromFullState = function(fullState) {
+        var self = this;
+        this.getMainStateFromFullState = function(fullState) {
             return fullState ? (fullState.split('.')[0] ? fullState.split('.')[0] : '') : '';
+        };
+        this.getFocusState = function(tabs, setSelected) {
+            return {
+                name: 'focus',
+                url: '/focus',
+                resolve: {},
+                views: {
+                    'details-tab-center': {
+                        templateUrl: function() {
+                            return _.find(tabs, function(tab) { return tab.focusTabCenter; }).templateUrl;
+                        },
+                        controller: setSelected
+                    }
+                    ,
+                    'details-tab-right': {
+                        templateUrl: function() {
+                            return _.find(tabs, function(tab) { return tab.focusTabRight; }).templateUrl;
+                        },
+                        controller: setSelected
+                    }
+                }
+            }
         };
         this.getFeatureNewState = function(fullParentPathState) {
             var featureNewState = {
@@ -271,7 +301,7 @@ angular.module('isCore', ['ui.router'])
                 },
                 views: {}
             };
-            featureNewState.views['details' + getMainStateFromFullState(fullParentPathState)] = {
+            featureNewState.views['details' + self.getMainStateFromFullState(fullParentPathState)] = {
                 templateUrl: 'feature.new.html',
                 controller: 'featureNewCtrl',
                 resolve: {
@@ -349,7 +379,7 @@ angular.module('isCore', ['ui.router'])
             _.each(backlogTabs, function(value, key) {
                 backlogTabState.resolve['data' + key] = value.resolve;
             });
-            backlogState.views['details' + getMainStateFromFullState(fullParentPathState)] = {
+            backlogState.views['details' + self.getMainStateFromFullState(fullParentPathState)] = {
                 templateUrl: 'backlog.details.html',
                 controller: 'backlogDetailsCtrl'
             };
@@ -358,6 +388,9 @@ angular.module('isCore', ['ui.router'])
         this.getTaskDetailsState = function(fullParentPathState) {
             var taskTabs = itemTabsProvider.itemTabs.task;
             var tabNames = _.keys(taskTabs);
+            var setSelected = ['$scope', 'detailsTask', function($scope, detailsTask) {
+                $scope.selected = detailsTask;
+            }];
             var taskState = {
                 name: 'details',
                 url: "/{taskId:int}",
@@ -379,21 +412,34 @@ angular.module('isCore', ['ui.router'])
                                         return taskTabs[$stateParams.taskTabId].templateUrl;
                                     }
                                 },
-                                controller: ['$scope', 'detailsTask', function($scope, detailsTask) {
-                                    $scope.selected = detailsTask;
-                                }]
+                                controller: setSelected
                             }
                         }
-                    }
+                    },
+                    self.getFocusState(taskTabs, setSelected)
                 ]
             };
             // Default tab (without tabId)
             taskState.resolve.details = taskTabs.details.resolve;
             var taskTabState = taskState.children[0];
+            var taskFocusState = taskState.children[1];
+            var taskFocusTabState = _.cloneDeep(taskTabState);
+            taskFocusTabState.onEnter = ['$state', '$stateParams', '$timeout', function($state, $stateParams, $timeout) {
+                var focusTabs = _.keys(_.pickBy(taskTabs, function(tab) {
+                    return tab.focusTabCenter || tab.focusTabRight;
+                }));
+                if (_.includes(focusTabs, $stateParams.taskTabId)) {
+                    $timeout(function() {$state.go('^', $stateParams, {location: 'replace'});});
+                }
+            }];
+            taskFocusTabState.views['details-tab' + fullParentPathState + '.task.details'] = taskFocusTabState.views['details-tab'];
+            delete taskFocusTabState.views['details-tab'];
+            taskFocusState.children = [taskFocusTabState];
             _.each(taskTabs, function(value, key) {
                 taskTabState.resolve['data' + key] = value.resolve;
+                (value.focusTabCenter || value.focusTabRight ? taskFocusState : taskFocusTabState).resolve['data' + key] = value.resolve;
             });
-            taskState.views['details' + getMainStateFromFullState(fullParentPathState)] = {
+            taskState.views['details' + self.getMainStateFromFullState(fullParentPathState)] = {
                 templateUrl: 'task.details.html',
                 controller: 'taskDetailsCtrl'
             };
@@ -402,6 +448,9 @@ angular.module('isCore', ['ui.router'])
         this.getFeatureDetailsState = function(fullParentPathState, isModal) {
             var featureTabs = itemTabsProvider.itemTabs.feature;
             var tabNames = _.keys(featureTabs);
+            var setSelected = ['$scope', 'detailsFeature', function($scope, detailsFeature) {
+                $scope.selected = detailsFeature;
+            }];
             var featureState = {
                 name: 'details',
                 url: "/{featureId:int}",
@@ -424,30 +473,43 @@ angular.module('isCore', ['ui.router'])
                                         return featureTabs[$stateParams.featureTabId].templateUrl;
                                     }
                                 },
-                                controller: ['$scope', 'detailsFeature', function($scope, detailsFeature) {
-                                    $scope.selected = detailsFeature;
-                                }]
+                                controller: setSelected
                             }
                         }
-                    }
+                    },
+                    self.getFocusState(featureTabs, setSelected)
                 ]
             };
             // Default tab (without tabId)
             featureState.resolve.details = featureTabs.details.resolve;
             var featureTabState = featureState.children[0];
+            var featureFocusState = featureState.children[1];
+            var featureFocusTabState = _.cloneDeep(featureTabState);
+            featureFocusTabState.onEnter = ['$state', '$stateParams', '$timeout', function($state, $stateParams, $timeout) {
+                var focusTabs = _.keys(_.pickBy(featureTabs, function(tab) {
+                    return tab.focusTabCenter || tab.focusTabRight;
+                }));
+                if (_.includes(focusTabs, $stateParams.featureTabId)) {
+                    $timeout(function() {$state.go('^', $stateParams, {location: 'replace'});});
+                }
+            }];
+            featureFocusTabState.views['details-tab' + fullParentPathState + (fullParentPathState === '@feature' ? '' : '.feature') + '.details'] = featureFocusTabState.views['details-tab'];
+            delete featureFocusTabState.views['details-tab'];
+            featureFocusState.children = [featureFocusTabState];
             _.each(featureTabs, function(value, key) {
                 featureTabState.resolve['data' + key] = value.resolve;
+                (value.focusTabCenter || value.focusTabRight ? featureFocusState : featureFocusTabState).resolve['data' + key] = value.resolve;
             });
-            featureState.views['details' + getMainStateFromFullState(fullParentPathState)] = {
+            featureState.views['details' + self.getMainStateFromFullState(fullParentPathState)] = {
                 templateUrl: 'feature.details.html',
                 controller: 'featureDetailsCtrl'
             };
             if (!isModal) {
-                featureTabState.children = [
-                    this.getDetailsModalState('story', {
-                        children: [this.getStoryDetailsState('@', true)]
-                    })
-                ];
+                var storyDetailsModalState = this.getDetailsModalState('story', {
+                    children: [this.getStoryDetailsState('@', true)]
+                });
+                featureTabState.children = [storyDetailsModalState];
+                featureFocusState.children.push(_.cloneDeep(storyDetailsModalState));
             }
             return featureState;
         };
@@ -472,7 +534,7 @@ angular.module('isCore', ['ui.router'])
                         url: '/{storyTabId:(?:' + _.join(tabNames, '|') + ')}',
                         resolve: {},
                         views: {
-                            "details-tab-left": {
+                            "details-tab": {
                                 templateUrl: function($stateParams) {
                                     if ($stateParams.storyTabId) {
                                         return storyTabs[$stateParams.storyTabId].templateUrl;
@@ -482,26 +544,7 @@ angular.module('isCore', ['ui.router'])
                             }
                         }
                     },
-                    {
-                        name: 'focus',
-                        url: '/focus',
-                        resolve: {},
-                        views: {
-                            "details-tab-center": {
-                                templateUrl: function() {
-                                    return _.find(storyTabs, function(tab) { return tab.focusTabCenter; }).templateUrl;
-                                },
-                                controller: setSelected
-                            }
-                            ,
-                            "details-tab-right": {
-                                templateUrl: function() {
-                                    return _.find(storyTabs, function(tab) { return tab.focusTabRight; }).templateUrl;
-                                },
-                                controller: setSelected
-                            }
-                        }
-                    }
+                    self.getFocusState(storyTabs, setSelected)
                 ]
             };
             storyState.resolve.details = storyTabs.details.resolve; // Default tab (without tabId)
@@ -516,18 +559,18 @@ angular.module('isCore', ['ui.router'])
                     $timeout(function() {$state.go('^', $stateParams, {location: 'replace'});});
                 }
             }];
+            storyFocusTabState.views['details-tab' + fullParentPathState + '.story.details'] = storyFocusTabState.views['details-tab'];
+            delete storyFocusTabState.views['details-tab'];
             storyFocusState.children = [storyFocusTabState];
             _.each(storyTabs, function(value, key) {
                 storyTabState.resolve['data' + key] = value.resolve;
                 (value.focusTabCenter || value.focusTabRight ? storyFocusState : storyFocusTabState).resolve['data' + key] = value.resolve;
             });
             // Put correct path to views dynamically
-            storyState.views['details' + getMainStateFromFullState(fullParentPathState)] = {
+            storyState.views['details' + self.getMainStateFromFullState(fullParentPathState)] = {
                 templateUrl: 'story.details.html',
                 controller: 'storyDetailsCtrl'
             };
-            storyFocusTabState.views["details-tab-left" + (fullParentPathState ? (fullParentPathState + '.story.details') : '')] = storyFocusTabState.views["details-tab-left"];
-            delete storyFocusTabState.views["details-tab-left"];
             if (!isModal) {
                 var featureDetailsModalState = this.getDetailsModalState('feature', {
                     resolve: {
@@ -589,7 +632,7 @@ angular.module('isCore', ['ui.router'])
             _.each(releaseTabs, function(value, key) {
                 releaseTabState.resolve['data' + key] = value.resolve;
             });
-            releaseState.views['details' + getMainStateFromFullState(fullParentPathState)] = {
+            releaseState.views['details' + self.getMainStateFromFullState(fullParentPathState)] = {
                 templateUrl: 'release.details.html',
                 controller: 'releaseDetailsCtrl'
             };
@@ -639,7 +682,7 @@ angular.module('isCore', ['ui.router'])
             _.each(sprintTabs, function(value, key) {
                 sprintTabState.resolve['data' + key] = value.resolve;
             });
-            sprintState.views['details' + getMainStateFromFullState(fullParentPathState)] = {
+            sprintState.views['details' + self.getMainStateFromFullState(fullParentPathState)] = {
                 templateUrl: 'sprint.details.html',
                 controller: 'sprintDetailsCtrl'
             };

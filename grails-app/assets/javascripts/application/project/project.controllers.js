@@ -59,14 +59,6 @@ controllers.controller('projectDigestChartCtrl', ['$scope', function($scope) {
     };
 }]);
 
-controllers.controller('publicProjectListCtrl', ['$scope', '$controller', 'ProjectService', function($scope, $controller, ProjectService) {
-    $controller('abstractProjectListCtrl', {$scope: $scope});
-    // Init
-    ProjectService.listPublicWidget().then(function(projects) {
-        $scope.projects = projects;
-    });
-}]);
-
 controllers.controller('abstractProjectCtrl', ['$scope', '$filter', 'Session', 'UserService', function($scope, $filter, Session, UserService) {
     $scope.searchUsers = function(val, isPo) {
         return UserService.search(val, true).then(function(users) {
@@ -188,6 +180,9 @@ extensibleController('newProjectCtrl', ['$scope', '$controller', 'DateService', 
     };
     $scope.teamRemovable = function(team) {
         return true;
+    };
+    $scope.teamLeavable = function(team) {
+        return false;
     };
     $scope.projectMembersEditable = function() {
         return true;
@@ -324,6 +319,9 @@ controllers.controller('editProjectMembersCtrl', ['$scope', '$controller', 'Sess
     $scope.teamRemovable = function(team) {
         return Session.owner(team);
     };
+    $scope.teamLeavable = function(team) {
+        return team.selected && team.members.length > 0;
+    };
     $scope.projectMembersEditable = function(project) {
         return ProjectService.authorizedProject('updateProjectMembers', project);
     };
@@ -385,24 +383,10 @@ extensibleController('editProjectCtrl', ['$scope', 'Session', 'ProjectService', 
         }).sortBy('title').value();
     };
     $scope['delete'] = function(project) {
-        $scope.confirm({
-            message: $scope.message('todo.is.ui.projectmenu.submenu.project.delete.confirm'),
-            buttonColor: 'danger',
-            buttonTitle: 'is.projectmenu.submenu.project.delete',
-            callback: function() {
-                ProjectService.delete(project);
-            }
-        })
+        ProjectService.delete(project);
     };
     $scope.archive = function(project) {
-        $scope.confirm({
-            message: $scope.message('is.dialog.project.archive.confirm'),
-            buttonColor: 'danger',
-            buttonTitle: 'is.dialog.project.archive.button',
-            callback: function() {
-                ProjectService.archive(project);
-            }
-        });
+        ProjectService.archive(project);
     };
     $scope.unArchive = function(project) {
         ProjectService.unArchive(project)

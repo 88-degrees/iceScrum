@@ -21,80 +21,163 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="feature.details.html">
-<div class="panel panel-light"
+<div class="card"
      flow-init
      flow-drop
      flow-files-submitted="attachmentQuery($flow, feature)"
      flow-drop-enabled="authorizedFeature('upload', feature)"
-     flow-drag-enter="dropClass='panel panel-light drop-enabled'"
-     flow-drag-leave="dropClass='panel panel-light'"
+     flow-drag-enter="dropClass='card drop-enabled'"
+     flow-drag-leave="dropClass='card'"
      ng-class="authorizedFeature('upload', feature) && dropClass">
-    <div class="panel-heading">
-        <h3 class="panel-title row">
-            <div class="left-title">
-                <i class="fa fa-puzzle-piece" ng-style="{color: feature.color}"></i> <strong>{{ ::feature.uid }}</strong>&nbsp;<span class="item-name" title="{{ feature.name }}">{{ feature.name }}</span>
-                <entry:point id="feature-details-left-title"/>
-            </div>
-            <div class="right-title">
-                <div style="margin-bottom:10px">
-                    <entry:point id="feature-details-right-title"/>
-                    <div class="btn-group">
-                        <a ng-if="previousFeature && !isModal"
-                           class="btn btn-default"
-                           role="button"
-                           tabindex="0"
-                           hotkey="{'left': hotkeyClick}"
-                           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.previous')}"
-                           defer-tooltip="${message(code: 'is.ui.backlogelement.toolbar.previous')} (&#xf060;)"
-                           ui-sref=".({featureId: previousFeature.id})">
-                            <i class="fa fa-caret-left"></i>
-                        </a>
-                        <a ng-if="nextFeature && !isModal"
-                           class="btn btn-default"
-                           role="button"
-                           tabindex="0"
-                           hotkey="{'right': hotkeyClick}"
-                           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.next')}"
-                           defer-tooltip="${message(code: 'is.ui.backlogelement.toolbar.next')} (&#xf061;)"
-                           ui-sref=".({featureId: nextFeature.id})">
-                            <i class="fa fa-caret-right"></i>
-                        </a>
-                    </div>
-                    <details-layout-buttons ng-if="!isModal" remove-ancestor="!$state.includes('feature.**')"/>
-                </div>
-                <div class="btn-group shortcut-menu" role="group">
-                    <shortcut-menu ng-model="feature" model-menus="menus" view-type="'details'"></shortcut-menu>
-                    <div ng-class="['btn-group dropdown', {'dropup': application.minimizedDetailsView}]" uib-dropdown>
-                        <button type="button" class="btn btn-default" uib-dropdown-toggle>
-                            <i ng-class="['fa', application.minimizedDetailsView ? 'fa-caret-up' : 'fa-caret-down']"></i>
-                        </button>
-                        <ul uib-dropdown-menu class="pull-right" ng-init="itemType = 'feature'" template-url="item.menu.html"></ul>
-                    </div>
-                </div>
-            </div>
-        </h3>
-        <a href="{{ tabUrl('activities') }}"><visual-states ng-model="feature" model-states="featureStatesByName"/></a>
+    <div class="details-header">
+        <entry:point id="feature-details-right-title"/>
+        <a ng-if="previousFeature && !isModal"
+           class="btn btn-icon"
+           role="button"
+           tabindex="0"
+           hotkey="{'left': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.previous')}"
+           uib-tooltip="${message(code: 'is.ui.backlogelement.toolbar.previous')} (&#xf060;)"
+           tooltip-placement="bottom"
+           href="{{ currentStateUrl(previousFeature.id) }}">
+            <span class="icon icon-caret-left"></span>
+        </a>
+        <a ng-if="!isModal"
+           class="btn btn-icon"
+           ng-class="nextFeature ? 'visible' : 'invisible'"
+           role="button"
+           tabindex="0"
+           hotkey="{'right': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.backlogelement.toolbar.next')}"
+           uib-tooltip="${message(code: 'is.ui.backlogelement.toolbar.next')} (&#xf061;)"
+           tooltip-placement="bottom"
+           href="{{ currentStateUrl(nextFeature ? nextFeature.id : feature.id) }}">
+            <span class="icon icon-caret-right"></span>
+        </a>
+        <a class="btn btn-icon expandable"
+           ng-if="!isModal && !application.focusedDetailsView"
+           href="{{ toggleFocusUrl() }}"
+           tabindex="0"
+           uib-tooltip="${message(code: 'is.ui.window.focus')} (SHIFT+↑)"
+           tooltip-placement="bottom"
+           hotkey="{'space': hotkeyClick, 'shift+up': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.window.focus')}">
+            <span class="icon icon-expand"></span>
+        </a>
+        <a class="btn btn-icon expandable"
+           ng-if="!isModal && application.focusedDetailsView"
+           href="{{ toggleFocusUrl() }}"
+           tabindex="0"
+           uib-tooltip="${message(code: 'is.ui.window.unfocus')} (SHIFT+↓)"
+           tooltip-placement="bottom"
+           hotkey="{'escape': hotkeyClick, 'shift+down': hotkeyClick}"
+           hotkey-description="${message(code: 'is.ui.window.unfocus')}">
+            <span class="icon icon-compress"></span>
+        </a>
+        <details-layout-buttons remove-ancestor="!$state.includes('feature.**') && !$state.includes('features.**')"/>
     </div>
-    <ul class="nav nav-tabs nav-tabs-is nav-justified disable-active-link">
-        <li role="presentation" ng-class="{'active':!$state.params.featureTabId}">
-            <a href="{{ tabUrl() }}">
-                <i class="fa fa-lg fa-edit"></i> ${message(code: 'todo.is.ui.details')}
-            </a>
-        </li>
-        <li role="presentation" ng-class="{'active':$state.params.featureTabId == 'stories'}">
-            <a href="{{ tabUrl('stories') }}">
-                <i class="fa fa-lg fa-sticky-note"></i> ${message(code: 'todo.is.ui.stories')} {{ feature.stories_ids.length | parens }}
-            </a>
-        </li>
-        <li role="presentation" ng-class="{'active':$state.params.featureTabId == 'activities'}">
-            <a href="{{ tabUrl('activities') }}">
-                <i class="fa fa-lg fa-clock-o"></i> ${message(code: 'todo.is.ui.history')}
-            </a>
-        </li>
-        <entry:point id="feature-details-tab-button"/>
-    </ul>
-    <div ui-view="details-tab">
-        <g:include view="feature/templates/_feature.properties.gsp"/>
+    <div class="card-header">
+        <div class="card-title">
+            <div class="details-title">
+                <span class="item-id">{{ ::feature.uid }}</span>
+                <span class="item-name" title="{{ feature.name }}">{{ feature.name }}</span>
+                <entry:point id="feature-details-left-title"/>
+                <div class="font-size-sm small">
+                    <div ng-if="isAllReleases">
+                        <a ng-repeat="release in feature.actualReleases"
+                           ng-class="{'strong': release.state == releaseStatesByName.IN_PROGRESS}"
+                           ui-sref="planning.release.details({releaseId: release.id})">
+                            {{ release.name }}<span ng-if="!$last">,&nbsp;</span>
+                        </a>
+                    </div>
+                    <div ng-if="!isAllReleases && feature.actualReleases.length">
+                        <a ng-class="{'strong': getCurrentRelease(feature).state == releaseStatesByName.IN_PROGRESS}"
+                           ui-sref="planning.release.details({releaseId: getCurrentRelease(feature).id})">
+                            {{ getCurrentRelease(feature).name }}
+                        </a>
+                        <span ng-if="feature.actualReleases.length > 1"
+                              ng-click="showAllReleases()">
+                            (...)
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="btn-menu" uib-dropdown>
+                <shortcut-menu ng-model="feature" model-menus="menus" view-type="'details'" btn-sm="true"></shortcut-menu>
+                <div uib-dropdown-toggle></div>
+                <div uib-dropdown-menu ng-init="itemType = 'feature'; viewType = 'details'" template-url="item.menu.html"></div>
+            </div>
+        </div>
+        <a href="{{ tabUrl('activities') }}" ng-class="{'disabled-link': feature.state < featureStatesByName.TODO}"><visual-states ng-model="feature" model-states="featureStatesByName"/></a>
+    </div>
+    <div class="details-content-container">
+        <div class="details-content details-content-left">
+            <ul class="nav nav-tabs nav-justified disable-active-link">
+                <li role="presentation"
+                    class="nav-item text-nowrap">
+                    <a href="{{ tabUrl() }}"
+                       class="nav-link"
+                       ng-class="{'active':!$state.params.featureTabId}">
+                        ${message(code: 'todo.is.ui.details')}
+                    </a>
+                </li>
+                <li role="presentation"
+                    class="nav-item text-nowrap"
+                    ng-if="!application.focusedDetailsView">
+                    <a href="{{ tabUrl('comments') }}"
+                       class="nav-link"
+                       ng-class="{'active':$state.params.featureTabId == 'comments'}">
+                        ${message(code: 'todo.is.ui.comments')} {{ feature.comments_count | parens }}
+                    </a>
+                </li>
+                <li role="presentation"
+                    class="nav-item text-nowrap"
+                    ng-if="!application.focusedDetailsView && feature.state >= featureStatesByName.TODO">
+                    <a href="{{ tabUrl('stories') }}"
+                       class="nav-link"
+                       ng-class="{'active':$state.params.featureTabId == 'stories'}">
+                        ${message(code: 'todo.is.ui.stories')} {{ feature.stories_ids.length | parens }}
+                    </a>
+                </li>
+                <li role="presentation"
+                    class="nav-item text-nowrap"
+                    ng-if="feature.state >= featureStatesByName.TODO">
+                    <a href="{{ tabUrl('activities') }}"
+                       class="nav-link"
+                       ng-class="{'active':$state.params.featureTabId == 'activities'}">
+                        ${message(code: 'todo.is.ui.history')}
+                    </a>
+                </li>
+                <entry:point id="feature-details-tab-button"/>
+            </ul>
+            <div ui-view="details-tab">
+                <g:include view="feature/templates/_feature.properties.gsp"/>
+            </div>
+        </div>
+        <div ng-if="application.focusedDetailsView" class="details-content details-content-center">
+            <ul class="nav nav-tabs nav-justified disable-active-link">
+                <li role="presentation"
+                    class="nav-item">
+                    <a href
+                       class="nav-link active">
+                        ${message(code: 'todo.is.ui.comments')} {{ feature.comments_count | parens }}
+                    </a>
+                </li>
+            </ul>
+            <div ui-view="details-tab-center"></div>
+        </div>
+        <div ng-if="application.focusedDetailsView" class="details-content details-content-right">
+            <ul class="nav nav-tabs nav-justified disable-active-link">
+                <li role="presentation"
+                    class="nav-item">
+                    <a href
+                       class="nav-link active">
+                        ${message(code: 'todo.is.ui.stories')} {{ feature.stories_ids.length | parens }}
+                    </a>
+                </li>
+            </ul>
+            <div ui-view="details-tab-right"></div>
+        </div>
     </div>
 </div>
 </script>

@@ -22,12 +22,12 @@
 --}%
 
 <script type="text/ng-template" id="form.members.project.html">
-<h4>${message(code: "todo.is.ui.project.members")}</h4>
-<p class="help-block">${message(code: 'todo.is.ui.project.members.help')}</p>
+<h4 class="mt-2">${message(code: "todo.is.ui.project.members")}</h4>
+<p class="form-text">${message(code: 'todo.is.ui.project.members.help')}</p>
 <div class="row">
-    <div class="col-sm-4" ng-if="projectMembersEditable(project)">
+    <div class="col-sm-4 mb-3" ng-if="projectMembersEditable(project)">
         <label for="productOwners.search">${message(code: 'todo.is.ui.select.productowner')}</label>
-        <p class="input-group">
+        <div class="input-group">
             <input autocomplete="off"
                    type="text"
                    name="productOwner.search"
@@ -36,18 +36,19 @@
                    placeholder="${message(code: 'is.ui.user.search.placeholder' + (grailsApplication.config.icescrum.user.search.enable ? '' : '.email'))}"
                    ng-model="po.name"
                    uib-typeahead="po as po.name for po in searchUsers($viewValue, true)"
-                   typeahead-append-to-body="true"
                    typeahead-loading="searchingPo"
                    typeahead-min-length="2"
                    typeahead-wait-ms="250"
                    typeahead-on-select="addUser($item, 'po')"
                    typeahead-template-url="select.member.html">
-            <span class="input-group-addon">
-                <i class="fa" ng-class="{ 'fa-search': !searchingPo, 'fa-refresh':searchingPo }"></i>
+            <span class="input-group-append">
+                <span class="input-group-text">
+                    <i class="fa" ng-class="{ 'fa-search': !searchingPo, 'fa-refresh':searchingPo }"></i>
+                </span>
             </span>
-        </p>
+        </div>
     </div>
-    <div ng-class="projectMembersEditable(project) ? 'col-sm-8' : 'col-sm-12' ">
+    <div ng-class="projectMembersEditable(project) ? 'col-sm-8' : 'col-sm-12'">
         <label ng-if="project.productOwners.length">${message(code: 'todo.is.ui.project.productOwners')} ({{ project.productOwners.length }})</label>
         <div ng-class="{'list-users': project.productOwners.length > 0}">
             <ng-include ng-init="role = 'po';" ng-repeat="user in project.productOwners" src="'user.item.project.html'"></ng-include>
@@ -55,9 +56,9 @@
     </div>
 </div>
 <div class="row" ng-show="project.preferences.hidden">
-    <div class="col-sm-4" ng-if="projectMembersEditable(project)">
+    <div class="col-sm-4 mb-3" ng-if="projectMembersEditable(project)">
         <label for="stakeHolders.search">${message(code: 'todo.is.ui.select.stakeholder')}</label>
-        <p class="input-group">
+        <div class="input-group">
             <input autocomplete="off"
                    type="text"
                    name="stakeHolder.search"
@@ -66,18 +67,19 @@
                    placeholder="${message(code: 'is.ui.user.search.placeholder' + (grailsApplication.config.icescrum.user.search.enable ? '' : '.email'))}"
                    ng-model="sh.name"
                    uib-typeahead="sh as sh.name for sh in searchUsers($viewValue)"
-                   typeahead-append-to-body="true"
                    typeahead-loading="searchingSh"
                    typeahead-min-length="2"
                    typeahead-wait-ms="250"
                    typeahead-on-select="addUser($item, 'sh')"
                    typeahead-template-url="select.member.html">
-            <span class="input-group-addon">
-                <i class="fa" ng-class="{ 'fa-search': !searchingSh, 'fa-refresh':searchingSh }"></i>
+            <span class="input-group-append">
+                <span class="input-group-text">
+                    <i class="fa" ng-class="{ 'fa-search': !searchingSh, 'fa-refresh':searchingSh }"></i>
+                </span>
             </span>
-        </p>
+        </div>
     </div>
-    <div ng-class="projectMembersEditable(project) ? 'col-sm-8' : 'col-sm-12' ">
+    <div ng-class="projectMembersEditable(project) ? 'col-sm-8' : 'col-sm-12'">
         <label ng-if="project.stakeHolders.length">${message(code: 'todo.is.ui.project.stakeholders')} ({{ project.stakeHolders.length }})</label>
         <div ng-class="{'list-users': project.stakeHolders.length > 0}">
             <ng-include ng-init="role = 'sh';" ng-repeat="user in project.stakeHolders" src="'user.item.project.html'"></ng-include>

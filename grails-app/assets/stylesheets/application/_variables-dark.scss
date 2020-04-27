@@ -1,0 +1,64 @@
+/**
+- Copyright (c) 2019 Kagilum SAS.
+-
+- This file is part of iceScrum.
+-
+- iceScrum is free software: you can redistribute it and/or modify
+- it under the terms of the GNU Affero General Public License as published by
+- the Free Software Foundation, either version 3 of the License.
+-
+- iceScrum is distributed in the hope that it will be useful,
+- but WITHOUT ANY WARRANTY; without even the implied warranty of
+- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- GNU General Public License for more details.
+-
+- You should have received a copy of the GNU Affero General Public License
+- along with iceScrum.  If not, see <http://www.gnu.org/licenses/>.
+-
+- Authors:
+-
+- Vincent Barrier (vbarrier@kagilum.com)
+- Nicolas Noullet (nnoullet@kagilum.com)
+**/
+
+$dark-grey: #3c3c3e;
+$dark-grey-alt: #464647;
+
+// Override
+$theme: "dark";
+$is-bg-color: #282829;
+$is-bg-color-alt: $dark-grey;
+$is-bg-color-ter: #39393b; // By Nico (since it's no a gradient anymore)
+$is-bg-state-progress: $dark-grey;
+$is-text-color: #c9c9ce; // or #b6babf = DILEMMA
+$is-text-color-alt: #ffffff;
+$is-text-color-shortcut: rgba(255, 255, 255, 0.6);
+$is-btn-secondary-start: #3f3f3f; // By Nico
+$is-btn-secondary-end: #494949; // By Nico
+$is-shadow-color-1: rgba(12, 12, 17, 0.5); // By Nico
+$is-shadow-color-2: rgba(23, 23, 29, 0.62); // By Nico
+$is-shadow-color-3: rgba(38, 38, 47, 0.62); // By Nico
+$is-outline-color: #505052;
+$is-search-bg-color: $dark-grey;
+$is-border-color: $dark-grey-alt;
+$is-border-color-alt: $dark-grey-alt;
+$is-chart-lines-axis: $dark-grey-alt;
+$is-shadow: 0 42px 48px 0 rgba(5, 5, 5, 0.5);
+$is-bg-color-role-sm: #1180e7;
+$is-bg-color-role-po: #687583;
+$is-bg-color-role-po-sm: #ffe802;
+$is-release-inprogress-right: #405c77;
+$is-release-done-right: #73d3c2;
+$is-sprint-todo: $dark-grey;
+$is-sprint-inprogress-right: $is-release-inprogress-right;
+$is-sprint-done-right: #44cfb8;
+$is-release-inprogress: #2c6cA8;
+$is-sprint-goal-right: rgba(40, 40, 41, 0.26);
+$is-bg-rating: rgba(9, 9, 9, 0.8);
+
+$list-group-bg: $is-bg-color;
+$list-group-hover-bg: $is-bg-color-alt;
+$list-group-action-active-bg: $is-bg-color-alt;
+$list-group-border-color: $is-border-color;
+$list-group-action-color: $is-text-color;
+$list-group-action-active-color: $is-text-color;

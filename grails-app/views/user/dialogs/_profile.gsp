@@ -26,7 +26,7 @@
           validate="true"
           submitButton="${message(code: 'is.button.update')}"
           closeButton="${message(code: 'is.button.cancel')}"
-          title="${message(code: 'todo.is.ui.profile')}">
+          title="${message(code: 'is.dialog.profile')}">
     <uib-tabset type="pills" justified="true" class="tab-pane-higher">
         <uib-tab heading="${message(code: 'todo.is.ui.profile.general.title')}">
             <div flow-files-added="editableUser.avatar = 'custom';"
@@ -39,11 +39,11 @@
                 <div class="row">
                     <div class="form-half">
                         <label for="username">${message(code: 'is.user.username')}</label>
-                        <p class="form-control-static">${user.username.encodeAsHTML()}</p>
+                        <p class="form-control-plaintext">${user.username.encodeAsHTML()}</p>
                     </div>
                     <div class="form-half">
                         <label for="userAvatar">${message(code: 'is.user.avatar')}</label>
-                        <div id="user-avatar" class="form-control-static">
+                        <div class="user-avatars form-control-plaintext">
                             <div class="col-md-12">
                                 <g:if test="${ApplicationSupport.booleanValue(grailsApplication.config.icescrum.gravatar?.enable)}">
                                     <img ng-click="editableUser.avatar = 'gravatar'"
@@ -69,10 +69,11 @@
                                      ng-class="{'selected': editableUser.avatar == 'admin-ico.png' }"
                                      src="${asset.assetPath(src: 'avatars/admin-ico.png')}"/>
                                 <div class="choose-file">
-                                    <span ng-class="{'hide': editableUser.avatar == 'custom' }"
-                                          flow-btn class="btn btn-default"><i class="fa fa-photo"></i></span>
+                                    <span ng-hide="editableUser.avatar == 'custom'"
+                                          flow-btn class="btn btn-secondary btn-sm"><i class="fa fa-photo"></i></span>
                                     <img flow-btn
-                                         ng-class="{'selected': editableUser.avatar == 'custom', 'hide': editableUser.avatar != 'custom' }"
+                                         ng-hide="editableUser.avatar != 'custom'"
+                                         ng-class="{'selected': editableUser.avatar == 'custom'}"
                                          flow-img="$flow.files[0] ? $flow.files[0] : null"/>
                                 </div>
                             </div>
@@ -88,6 +89,7 @@
                         <input at
                                type="text"
                                class="form-control"
+                               autocomplete="off"
                                name="user.firstName"
                                ng-model="editableUser.firstName"
                                autofocus
@@ -97,6 +99,7 @@
                         <label for="user.lastName">${message(code: 'is.user.lastname')}</label>
                         <input at
                                type="text"
+                               autocomplete="off"
                                class="form-control"
                                name="user.lastName"
                                ng-model="editableUser.lastName"
@@ -108,6 +111,7 @@
                         <label for="user.email">${message(code: 'is.user.email')}</label>
                         <input type="email"
                                name="user.email"
+                               autocomplete="off"
                                class="form-control"
                                ng-model="editableUser.email"
                                ng-blur="refreshAvatar(editableUser)"
@@ -124,7 +128,7 @@
                         </ui-select>
                     </div>
                 </div>
-                <div class="row" ng-show="!editableUser.accountExternal">
+                <div class="row" ng-if="!editableUser.accountExternal">
                     <div class="form-half">
                         <label for="user.password">${message(code: 'is.user.password')}</label>
                         <input name="user.password"
@@ -134,7 +138,7 @@
                                ng-password-strength>
                     </div>
                     <div class="form-half">
-                        <label for="confirmPassword">${message(code: 'is.dialog.register.confirmPassword')}</label>
+                        <label for="confirmPassword">${message(code: 'is.login.register.confirmPassword')}</label>
                         <input name="confirmPassword"
                                type="password"
                                class="form-control"
@@ -143,12 +147,22 @@
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-md-12 form-group">
+                    <div class="form-half">
                         <label for="user.preferences.activity">${message(code: 'is.user.preferences.activity')}</label>
                         <input name="user.preferences.activity"
+                               autocomplete="off"
                                type="text"
                                class="form-control"
                                ng-model="editableUser.preferences.activity">
+                    </div>
+                    <div class="form-half">
+                        <label for="user.preferences.colorScheme">${message(code: 'is.ui.colorScheme')}</label>
+                        <ui-select name="user.preferences.colorScheme"
+                                   class="form-control"
+                                   ng-model="editableUser.preferences.colorScheme">
+                            <ui-select-match placeholder="{{ message('is.ui.colorScheme.default') }}">{{ colorSchemes[$select.selected] }}</ui-select-match>
+                            <ui-select-choices repeat="colorSchemeKey in colorSchemeKeys">{{ colorSchemes[colorSchemeKey] }}</ui-select-choices>
+                        </ui-select>
                     </div>
                 </div>
                 <div>
@@ -161,25 +175,38 @@
             </div>
         </uib-tab>
         <entry:point id="user-dialog-profile-tab"/>
-        <uib-tab heading="${message(code: 'is.dialog.profile.tokensSettings')}">
+        <uib-tab heading="${message(code: 'is.ui.token.title')}">
             <div class="token-tab" ng-controller="UserTokenCtrl">
-                <div class="form-group">
-                    <label for="userToken.name">${message(code: 'is.user.token.name')}</label>
-                    <div class="input-group" hotkey="{'return': save }" hotkey-allow-in="INPUT">
-                        <input type="text"
-                               name="userToken.name"
-                               class="form-control"
-                               placeholder="${message(code: 'is.user.token.name.placeholder')}"
-                               ng-model="editableUserToken.name">
-                        <span class="input-group-btn">
-                            <button type="button" ng-click="save()" ng-disabled="!editableUserToken.name" class="btn btn-primary">
-                                ${message(code: 'is.ui.token.generate')}
-                            </button>
-                        </span>
+                <p class="form-text">
+                    ${message(code: 'is.ui.token.title.description')}
+                    <documentation doc-url="rest-api"/>
+                </p>
+                <div class="row is-form-row">
+                    <div class="form-half">
+                        <label for="userToken.name">${message(code: 'is.user.token.name')}</label>
+                        <div class="input-group" hotkey="{'return': save }" hotkey-allow-in="INPUT">
+                            <input type="text"
+                                   name="userToken.name"
+                                   autocomplete="off"
+                                   class="form-control"
+                                   placeholder="${message(code: 'is.user.token.name.placeholder')}"
+                                   ng-model="editableUserToken.name">
+                            <span class="input-group-append">
+                                <button type="button"
+                                        ng-click="save()"
+                                        ng-disabled="!editableUserToken.name"
+                                        class="btn btn-primary btn-sm">
+                                    ${message(code: 'is.ui.token.generate')}
+                                </button>
+                            </span>
+                        </div>
                     </div>
-                </div>
-                <div class="help-block">
-                    ${message(code: 'is.dialog.profile.tokensSettings.description')}
+                    <div class="form-half">
+                        <label for="userToken.sampleURL">${message(code: 'is.ui.token.sampleUrl')}</label>
+                        <div class="form-control-plaintext text-break">
+                            {{:: serverUrl + '/ws/project/YOURPROJ' }}
+                        </div>
+                    </div>
                 </div>
                 <table class="table table-bordered table-striped" ng-if="user.tokens_count > 0">
                     <thead>
@@ -193,7 +220,7 @@
                             <td>{{ token.id }}<div class="small">{{ token.name }}</div>
                             </td>
                             <td class="text-right">
-                                <button type="button" class="btn btn-danger" ng-click="delete(token)" defer-tooltip="${message(code: 'is.ui.token.revoke')}">
+                                <button type="button" class="btn btn-danger btn-sm" ng-click="delete(token)" defer-tooltip="${message(code: 'is.ui.token.revoke')}">
                                     <i class="fa fa-trash"></i>
                                 </button>
                             </td>

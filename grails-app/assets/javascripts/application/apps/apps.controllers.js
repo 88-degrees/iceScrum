@@ -21,7 +21,7 @@
  * Nicolas Noullet (nnoullet@kagilum.com)
  *
  */
-controllers.controller('appsCtrl', ['$scope', 'AppService', 'Session', '$window', '$timeout', '$uibModal', function($scope, AppService, Session, $window, $timeout, $uibModal) {
+extensibleController('appsCtrl', ['$scope', 'AppService', 'Session', '$window', '$timeout', '$uibModal', function($scope, AppService, Session, $window, $timeout, $uibModal) {
     // Functions
     $scope.openAppDefinition = function(appDefinition) {
         $scope.appDefinition = appDefinition;
@@ -40,6 +40,10 @@ controllers.controller('appsCtrl', ['$scope', 'AppService', 'Session', '$window'
                 $timeout(function() {
                     $window.location.reload();
                 }, 600);
+            } else if ($scope.closeModalOnEnableApp && !appDefinition.projectSettings) {
+                $timeout(function() {
+                    $scope.$close();
+                }, 200);
             }
         });
     };
@@ -67,7 +71,7 @@ controllers.controller('appsCtrl', ['$scope', 'AppService', 'Session', '$window'
     $scope.isEnabledApp = function(appDefinition) {
         return appDefinition.availableForServer && appDefinition.enabledForServer && (!appDefinition.isProject || $scope.isEnabledForProject(appDefinition));
     };
-    $scope.isEnabledForProject = function(appDefinition, project) {
+    $scope.isEnabledForProject = function(appDefinition) {
         return AppService.authorizedApp('use', appDefinition.id, $scope.project);
     };
     $scope.showScreenshot = function(appDefinition, screenshot) {

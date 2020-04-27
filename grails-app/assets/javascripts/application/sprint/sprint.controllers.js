@@ -23,7 +23,7 @@
  *
  */
 
-controllers.controller('sprintCtrl', ['$rootScope', '$scope', '$state', '$q', '$uibModal', 'Session', 'SprintService', 'SprintStatesByName', 'StoryService', 'StoryStatesByName', 'StoryTypesByName', function($rootScope, $scope, $state, $q, $uibModal, Session, SprintService, SprintStatesByName, StoryService, StoryStatesByName, StoryTypesByName) {
+controllers.controller('sprintCtrl', ['$rootScope', '$scope', '$state', '$q', '$uibModal', '$window', 'Session', 'SprintService', 'SprintStatesByName', 'StoryService', 'StoryStatesByName', 'StoryTypesByName', function($rootScope, $scope, $state, $q, $uibModal, $window, Session, SprintService, SprintStatesByName, StoryService, StoryStatesByName, StoryTypesByName) {
     // Functions
     $scope.showSprintMenu = function() {
         return Session.poOrSm();
@@ -133,7 +133,6 @@ controllers.controller('sprintCtrl', ['$rootScope', '$scope', '$state', '$q', '$
                     });
                 };
                 // Init
-                $scope.disabledGradient = true;
                 $scope.backlog = {
                     stories: [],
                     storiesLoaded: false
@@ -147,7 +146,6 @@ controllers.controller('sprintCtrl', ['$rootScope', '$scope', '$state', '$q', '$
         $scope.openStorySelectorModal({
             code: 'plan',
             order: 'rank',
-            inputFilterEnabled: true,
             filter: {
                 state: StoryStatesByName.ESTIMATED,
                 type: [StoryTypesByName.USER_STORY, StoryTypesByName.DEFECT, StoryTypesByName.TECHNICAL_STORY]
@@ -214,9 +212,15 @@ controllers.controller('sprintCtrl', ['$rootScope', '$scope', '$state', '$q', '$
             action: function(sprint) { $scope.confirm({message: $scope.message('is.ui.releasePlan.menu.sprint.warning.dissociateAll'), callback: $scope.unPlan, args: [sprint]}); }
         },
         {
+            name: 'todo.is.ui.details',
+            visible: function(sprint, viewType) { return viewType !== 'details'; },
+            action: function(sprint) { $window.location.hash = $scope.openSprintUrl(sprint); } // Inherited
+        },
+        {
             name: 'is.ui.releasePlan.menu.sprint.delete',
+            deleteMenu: true,
             visible: function(sprint) { return $scope.authorizedSprint('delete', sprint); },
-            action: function(sprint) { $scope.confirmDelete({callback: $scope.delete, args: [sprint]}); }
+            action: function(sprint) { $scope.delete(sprint); }
         }
     ];
     $scope.validateStartDate = function(startDate) {
@@ -363,9 +367,9 @@ controllers.controller('sprintNewCtrl', ['$scope', '$controller', '$state', 'Dat
     });
 }]);
 
-controllers.controller('sprintDetailsCtrl', ['$scope', '$controller', 'SprintStatesByName', 'DateService', 'SprintService', 'ReleaseService', 'TimeBoxNotesTemplateService', 'FormService', 'detailsSprint', 'detailsRelease', 'project', function($scope, $controller, SprintStatesByName, DateService, SprintService, ReleaseService, TimeBoxNotesTemplateService, FormService, detailsSprint, detailsRelease, project) {
+controllers.controller('sprintDetailsCtrl', ['$scope', '$controller', 'SprintStatesByName', 'WorkspaceType', 'DateService', 'SprintService', 'ReleaseService', 'TimeBoxNotesTemplateService', 'FormService', 'detailsSprint', 'detailsRelease', 'project', function($scope, $controller, SprintStatesByName, WorkspaceType, DateService, SprintService, ReleaseService, TimeBoxNotesTemplateService, FormService, detailsSprint, detailsRelease, project) {
     $controller('sprintCtrl', {$scope: $scope}); // inherit from sprintCtrl
-    $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsSprint, clazz: 'sprint', project: project});
+    $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsSprint, clazz: 'sprint', workspace: project, workspaceType: WorkspaceType.PROJECT});
     // Functions
     $scope.update = function(sprint) {
         SprintService.update(sprint, $scope.release).then(function() {

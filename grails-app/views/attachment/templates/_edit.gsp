@@ -24,13 +24,17 @@
 <is:modal form="submit(editableAttachment)"
           submitButton="${message(code: 'default.button.update.label')}"
           closeButton="${message(code: 'is.button.cancel')}"
+          name="formAttachment"
+          validate="true"
           title="${message(code: 'todo.is.ui.attachment.edit')}">
     <div>
         <label for="name">${message(code: 'is.backlogelement.name')}</label>
         <input type="text"
                class="form-control"
+               autocomplete="off"
                autofocus
                name="name"
+               ng-maxlength="255"
                ng-model="editableAttachment.name"/>
     </div>
 </is:modal>

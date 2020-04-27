@@ -41,14 +41,13 @@ extensibleController('taskStoryCtrl', ['$scope', '$controller', 'TaskService', f
             $scope.notifySuccess('todo.is.ui.deleted');
         });
     };
-    $scope.authorizedTask = TaskService.authorizedTask;
     // Init
     $scope.project = $scope.getProjectFromState();
     $scope.formHolder = {};
     $scope.resetTaskForm();
 }]);
 
-extensibleController('taskSortableStoryCtrl', ['$scope', '$filter', 'TaskService', 'Session', 'TaskStatesByName', function($scope, $filter, TaskService, Session, TaskStatesByName) {
+extensibleController('taskSortableStoryCtrl', ['$scope', '$filter', '$state', 'TaskService', 'Session', 'TaskStatesByName', function($scope, $filter, $state, TaskService, Session, TaskStatesByName) {
     // Functions
     $scope.taskSortableOptions = {
         orderChanged: function(event) {
@@ -66,6 +65,9 @@ extensibleController('taskSortableStoryCtrl', ['$scope', '$filter', 'TaskService
     $scope.isTaskSortableByState = function(state) {
         return state == TaskStatesByName.TODO && Session.tmOrSm();
     };
+    $scope.openTaskUrl = function(taskId) {
+        return $state.href('.task.details', {taskId: taskId});
+    };
     // Init
     $scope.$watch('selected.tasks', function(tasks) {
         $scope.tasksByState = _.chain(tasks)
@@ -75,7 +77,7 @@ extensibleController('taskSortableStoryCtrl', ['$scope', '$filter', 'TaskService
                 var label = $filter('i18n')(state, 'TaskStates') + ' (' + tasks.length;
                 var totalEffort = $filter('floatSumBy')(tasks, 'estimation');
                 if (totalEffort) {
-                    label += ' - ' + totalEffort + ' <i class="fa ' + $filter('taskStateIcon')(state) + ' fa-small"></i>'
+                    label += ' - ' + totalEffort
                 }
                 label += ')';
                 return {
@@ -89,7 +91,7 @@ extensibleController('taskSortableStoryCtrl', ['$scope', '$filter', 'TaskService
     $scope.sortableId = 'story-tasks';
 }]);
 
-extensibleController('taskCtrl', ['$scope', '$timeout', '$uibModal', '$filter', '$state', 'TaskService', 'FormService', 'TaskStatesByName', 'StoryStatesByName', 'postitSize', 'screenSize', function($scope, $timeout, $uibModal, $filter, $state, TaskService, FormService, TaskStatesByName, StoryStatesByName, postitSize, screenSize) {
+extensibleController('taskCtrl', ['$scope', '$timeout', '$uibModal', '$filter', '$state', '$window', 'TaskService', 'FormService', 'TaskStatesByName', 'StoryStatesByName', function($scope, $timeout, $uibModal, $filter, $state, $window, TaskService, FormService, TaskStatesByName, StoryStatesByName) {
     // Functions
     $scope.take = function(task) {
         TaskService.take(task);
@@ -124,7 +126,7 @@ extensibleController('taskCtrl', ['$scope', '$timeout', '$uibModal', '$filter', 
                 return viewType === 'list' ? 100 : defaultPriority;
             },
             visible: function(task, viewType) { return viewType !== 'details'; },
-            action: function(task) { $state.go('.task.details', {taskId: task.id}); }
+            action: function(task) { $window.location.hash = $scope.openTaskUrl(task.id); } // Inherited
         },
         {
             name: 'is.ui.sprintPlan.menu.task.take',
@@ -170,7 +172,7 @@ extensibleController('taskCtrl', ['$scope', '$timeout', '$uibModal', '$filter', 
             name: 'todo.is.ui.permalink.copy',
             visible: function(task) { return true; },
             action: function(task) {
-                FormService.copyToClipboard($filter('permalink')(task.uid, 'task')).then(function() {
+                FormService.copyToClipboard(task.permalink).then(function() {
                     $scope.notifySuccess('is.ui.permalink.copy.success');
                 }, function(text) {
                     $scope.notifyError('is.ui.permalink.copy.error' + ' ' + text);
@@ -178,14 +180,15 @@ extensibleController('taskCtrl', ['$scope', '$timeout', '$uibModal', '$filter', 
             }
         },
         {
-            name: 'is.ui.sprintPlan.menu.task.delete',
-            visible: function(task) { return $scope.authorizedTask('delete', task); },
-            action: function(task) { $scope.confirmDelete({callback: $scope.delete, args: [task]}); }
-        },
-        {
             name: 'is.ui.sprintPlan.menu.task.block',
             visible: function(task) { return $scope.authorizedTask('block', task); },
             action: function(task) { $scope.block(task); }
+        },
+        {
+            name: 'is.ui.sprintPlan.menu.task.delete',
+            deleteMenu: true,
+            visible: function(task) { return $scope.authorizedTask('delete', task); },
+            action: function(task, item, $event) { $scope.delete(task); }
         }
     ];
     $scope.showEditEstimationModal = function(task, $event) {
@@ -210,12 +213,6 @@ extensibleController('taskCtrl', ['$scope', '$timeout', '$uibModal', '$filter', 
             }
         }
     };
-    var getPostitClass = function() {
-        $scope.postitClass = postitSize.postitClass($scope.viewName, 'grid-group size-sm');
-    };
-    getPostitClass();
-    screenSize.on('xs, sm', getPostitClass, $scope);
-    $scope.$watch(function() { return postitSize.currentPostitSize($scope.viewName); }, getPostitClass);
     $scope.storyStatesByName = StoryStatesByName;
 }]);
 
@@ -276,10 +273,10 @@ extensibleController('taskNewCtrl', ['$scope', '$state', '$stateParams', '$contr
     });
 }]);
 
-extensibleController('taskDetailsCtrl', ['$scope', '$state', '$filter', '$controller', 'Session', 'TaskStatesByName', 'TaskConstants', 'TaskService', 'FormService', 'taskContext', 'detailsTask', 'project', function($scope, $state, $filter, $controller, Session, TaskStatesByName, TaskConstants, TaskService, FormService, taskContext, detailsTask, project) {
+extensibleController('taskDetailsCtrl', ['$scope', '$state', '$filter', '$controller', 'Session', 'TaskStatesByName', 'TaskConstants', 'WorkspaceType', 'TaskService', 'FormService', 'taskContext', 'detailsTask', 'project', function($scope, $state, $filter, $controller, Session, TaskStatesByName, TaskConstants, WorkspaceType, TaskService, FormService, taskContext, detailsTask, project) {
     $controller('tagCtrl', {$scope: $scope, type: 'task'});
     $controller('taskCtrl', {$scope: $scope});
-    $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsTask, clazz: 'task', project: project});
+    $controller('attachmentCtrl', {$scope: $scope, attachmentable: detailsTask, clazz: 'task', workspace: project, workspaceType: WorkspaceType.PROJECT});
     // Functions
     $scope.update = function(task) {
         TaskService.update(task, true).then(function() {
@@ -298,6 +295,10 @@ extensibleController('taskDetailsCtrl', ['$scope', '$state', '$filter', '$contro
         TaskService.getMostUsedColors().then(function(colors) {
             $scope.mostUsedColors = colors;
         });
+    };
+    $scope.toggleFocusUrl = function() {
+        var stateName = $scope.application.focusedDetailsView ? ($state.params.taskTabId ? '^.^.tab' : '^') : $state.params.taskTabId ? '^.focus.tab' : '.focus';
+        return $state.href(stateName, {taskTabId: $state.params.taskTabId});
     };
     // Init
     $controller('updateFormController', {$scope: $scope, item: detailsTask, type: 'task'});

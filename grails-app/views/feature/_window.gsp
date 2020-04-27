@@ -22,128 +22,172 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <is:window windowDefinition="${windowDefinition}">
-    <div class="backlogs-list-details">
-        <div class="panel panel-light">
-            <div class="panel-heading">
-                <h3 class="panel-title small-title clearfix">
-                    <span class="title pull-left"><i class="fa fa-puzzle-piece"></i> ${message(code: 'is.ui.feature')} ({{ features.length}})</span>
-                    <div class="btn-toolbar pull-left">
-                        <div class="btn-group">
-                            <div class="btn-group"
-                                 uib-dropdown
-                                 defer-tooltip="${message(code: 'todo.is.ui.sort')}">
-                                <button class="btn btn-default"
-                                        uib-dropdown-toggle type="button">
-                                    <span>{{ orderBy.current.name }}</span>
-                                    <i class="fa fa-caret-down"></i>
-                                </button>
-                                <ul uib-dropdown-menu role="menu">
-                                    <li role="menuitem" ng-repeat="order in orderBy.values">
-                                        <a ng-click="orderBy.current = order" href>{{ order.name }}</a>
-                                    </li>
-                                </ul>
-                            </div>
-                            <button type="button"
-                                    class="btn btn-default"
-                                    ng-click="orderBy.reverse = !orderBy.reverse"
-                                    defer-tooltip="${message(code: 'todo.is.ui.sort.order')}">
-                                <i class="fa fa-sort-amount{{ orderBy.reverse ? '-desc' : '-asc'}}"></i>
-                            </button>
-                            <button type="button"
-                                    ng-if="isSortableFeature() && !isSortingFeature()"
-                                    class="btn btn-default hidden-sm hidden-xs"
-                                    ng-click="enableSortable()"
-                                    uib-tooltip="${message(code: 'todo.is.ui.sortable.enable')}">
-                                <i class="fa fa-hand-pointer-o text-danger forbidden-stack"></i>
-                            </button>
-                        </div>
-                        <div class="btn-group hidden-sm hidden-xs"
-                             uib-dropdown
-                             ng-if="authenticated()"
-                             defer-tooltip="${message(code: 'todo.is.ui.export')}">
-                            <button class="btn btn-default"
-                                    uib-dropdown-toggle
-                                    ng-disabled="!features.length"
-                                    type="button">
-                                <i class="fa fa-download"></i> <i class="fa fa-caret-down"></i>
-                            </button>
-                            <ul uib-dropdown-menu
-                                role="menu">
-                                <g:each in="${is.exportFormats(windowDefinition: windowDefinition)}" var="format">
-                                    <li role="menuitem">
-                                        <a href="${format.onlyJsClick ? '' : (format.resource ?: 'feature') + '/' + (format.action ?: 'print') + '/' + (format.params.format ?: '')}"
-                                           ng-click="${format.jsClick ? format.jsClick : 'print'}($event)">${format.name}</a>
-                                    </li>
-                                </g:each>
-                            </ul>
+    <div class="card card-view"
+         flow-init
+         flow-drop
+         flow-files-submitted="newFromFiles($flow, project)"
+         flow-drop-enabled="authorizedFeature('create')"
+         flow-drag-enter="dropClass='card drop-enabled'"
+         flow-drag-leave="dropClass='card'"
+         ng-class="dropClass">
+        <div class="drop-split-zone-left d-flex align-items-center justify-content-center" flow-drag-hover>
+            <div>
+                <asset:image src="application/upload-new-many-features.svg" width="70" height="70"/>
+                <span class="drop-text">${message(code: 'todo.is.ui.drop.multiple.file.create.many', args: [message(code: 'is.feature')])}</span>
+            </div>
+        </div>
+        <div class="drop-split-zone-right d-flex align-items-center justify-content-center" flow-drag-hover>
+            <div>
+                <asset:image src="application/upload-new-one-feature.svg" width="70" height="70"/>
+                <span class="drop-text">${message(code: 'todo.is.ui.drop.multiple.file.create.one', args: [message(code: 'is.feature')])}</span>
+            </div>
+        </div>
+        <div class="card-header row">
+            <div class="card-header-left order-0 col-auto flex-grow-1">
+                <span class="card-title">${message(code: 'is.ui.feature')} ({{ features.length}})</span>
+            </div>
+            <div class="w-100 order-2 d-block d-sm-none"></div>
+            <div class="btn-toolbar pl-1 mt-2 mt-sm-0 order-3 order-sm-1 col-auto">
+                <div class="btn-group ml-0">
+                    <div uib-dropdown>
+                        <button class="btn btn-link"
+                                uib-dropdown-toggle
+                                ng-disabled="!features.length"
+                                type="button">${message(code: 'todo.is.ui.order.sort')}&nbsp;<strong>{{ orderBy.current.name }}</strong><span class="sort" ng-class="{'reverse':orderBy.reverse}"></span>
+                        </button>
+                        <div uib-dropdown-menu role="menu">
+                            <div class="dropdown-header">${message(code: 'todo.is.ui.order')}</div>
+                            <div role="menuitem"
+                                 class="dropdown-item"
+                                 ng-click="orderBy.reverse = !orderBy.reverse"
+                                 ng-class="{'active': !orderBy.reverse}">${message(code: 'todo.is.ui.order.sort.asc')}</div>
+                            <div role="menuitem"
+                                 class="dropdown-item"
+                                 ng-click="orderBy.reverse = !orderBy.reverse"
+                                 ng-class="{'active': orderBy.reverse}">${message(code: 'todo.is.ui.order.sort.desc')}</div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-header">${message(code: 'todo.is.ui.order.sort')}</div>
+                            <div role="menuitem"
+                                 class="dropdown-item"
+                                 ng-repeat="order in orderBy.values"
+                                 ng-click="orderBy.current = order"
+                                 ng-class="{'active': orderBy.current == order}">{{:: order.name }}</div>
                         </div>
                     </div>
-                    <div class="btn-toolbar pull-right">
-                        <div class="btn-group">
-                            <button type="button"
-                                    class="btn btn-default hidden-xs hidden-sm"
-                                    defer-tooltip="${message(code: 'todo.is.ui.postit.size')}"
-                                    ng-click="setPostitSize(viewName)"><i class="fa {{ iconCurrentPostitSize(viewName) }}"></i>
-                            </button>
-                            <button type="button"
-                                    class="btn btn-default hidden-xs"
-                                    ng-click="fullScreen()"
-                                    defer-tooltip="${message(code: 'is.ui.window.fullscreen')}"><i class="fa fa-arrows-alt"></i>
-                            </button>
-                        </div>
-                        <a ng-if="authorizedFeature('create')"
-                           href="#/{{ ::viewName }}/new"
-                           class="btn btn-primary pull-right">${message(code: "todo.is.ui.feature.new")}</a>
-                    </div>
-                </h3>
-                <div class="clearfix"></div>
-                <div class="window-alert window-alert-margin-top bg-warning"
-                     ng-if="selectableOptions.selectingMultiple">
-                    ${message(code: 'todo.is.ui.selectable.bulk.enabled')} (<strong><a href class="link" ng-click="toggleSelectableMultiple()">${message(code: 'todo.is.ui.disable')}</a></strong>)
+                    <button type="button"
+                            ng-if="isSortableFeature() && !isSortingFeature()"
+                            class="btn btn-link"
+                            ng-click="enableSortable()"
+                            uib-tooltip="${message(code: 'todo.is.ui.sortable.enable')}">
+                        <i class="fa fa-hand-stop-o text-danger"></i>
+                    </button>
                 </div>
-                <div class="window-alert window-alert-margin-top bg-info"
-                     ng-if="authorizedFeature('update') && !isSortableFeature()">
-                    ${message(code: 'is.ui.feature.rank.disabled')}
+                <div uib-dropdown>
+                    <button class="btn btn-link"
+                            uib-dropdown-toggle
+                            type="button">
+                        {{ currentFeaturesFilter.name + ' (' + countByFilter(currentFeaturesFilter) + ')'}}
+                    </button>
+                    <div uib-dropdown-menu role="menu">
+                        <a role="menuitem"
+                           class="dropdown-item"
+                           ng-repeat="featuresFilter in featuresFilters"
+                           ng-click="changeFeaturesFilter(featuresFilter)"
+                           href>
+                            {{ featuresFilter.name + ' (' + countByFilter(featuresFilter) + ')'}}
+                        </a>
+                    </div>
+                </div>
+                <div class="btn-group"
+                     uib-dropdown
+                     ng-if="authenticated()">
+                    <button class="btn btn-link"
+                            uib-dropdown-toggle
+                            ng-disabled="!features.length"
+                            type="button">
+                        <i class="fa fa-download"></i>
+                    </button>
+                    <div uib-dropdown-menu class="dropdown-menu-right" role="menu">
+                        <div class="dropdown-header">${message(code: 'todo.is.ui.export')}</div>
+                        <g:each in="${is.exportFormats(windowDefinition: windowDefinition)}" var="format">
+                            <a role="menuitem"
+                               class="dropdown-item"
+                               href="${format.onlyJsClick ? '' : (format.resource ?: 'feature') + '/' + (format.action ?: 'print') + '/' + (format.params.format ?: '')}"
+                               ng-click="${format.jsClick ? format.jsClick : 'print'}($event)">${format.name}</a>
+                        </g:each>
+                    </div>
+                </div>
+                <div class="btn-group d-none d-lg-block sticky-note-size" uib-dropdown>
+                    <button class="btn btn-dropdown-icon"
+                            uib-dropdown-toggle
+                            type="button">
+                        <span class="icon icon-{{ iconCurrentStickyNoteSize(viewName) }}"></span>
+                    </button>
+                    <div uib-dropdown-menu class="dropdown-menu-right" role="menu">
+                        <div class="dropdown-header">${message(code: 'todo.is.ui.stickynote.display')}</div>
+                        <div role="menuitem"
+                             class="dropdown-item clearfix"
+                             ng-click="setStickyNoteSize(viewName,'list-group')"
+                             ng-class="{'active': iconCurrentStickyNoteSize(viewName) == 'list-group'}">${message(code: 'todo.is.ui.stickynote.display.list')}&nbsp;<span class="float-right icon icon-list-group icon-highlight"></span></div>
+                        <div role="menuitem"
+                             class="dropdown-item clearfix"
+                             ng-click="setStickyNoteSize(viewName,'grid-group')"
+                             ng-class="{'active': iconCurrentStickyNoteSize(viewName) == 'grid-group'}">${message(code: 'todo.is.ui.stickynote.display.grid')}&nbsp;<span class="float-right icon icon-grid-group icon-highlight"></span></div>
+                    </div>
                 </div>
             </div>
-            <div class="panel-body scrollable-selectable-container"
-                 selectable="selectableOptions">
-                <div ng-if="features.length == 0"
-                     class="empty-view">
-                    <p class="help-block">${message(code: 'is.ui.feature.help')}<p>
-                    <a class="btn btn-primary"
-                       ng-if="authorizedFeature('create')"
-                       href="#{{ ::viewName }}/new">
-                        ${message(code: 'todo.is.ui.feature.new')}
-                    </a>
-                </div>
-                <div ng-if="application.search && features.length != 0 && (features | search).length == 0"
-                     class="empty-view">
-                    <p class="help-block">${message(code: 'is.ui.feature.search.empty')} <strong>{{ application.search }}</strong></p>
-                    <button class="btn btn-default"
-                            ng-click="application.search = null">
-                        ${message(code: 'todo.is.ui.search.clear')}
-                    </button>
-                    <a class="btn btn-primary"
-                       ng-if="authorizedFeature('create')"
-                       href="#{{ ::viewName }}/new">
-                        ${message(code: 'todo.is.ui.feature.new')}
-                    </a>
-                </div>
-                <div class="postits {{ postitClass }}"
-                     ng-class="{'has-selected': hasSelected(), 'sortable-multiple': application.sortableMultiple }"
-                     ng-controller="featureCtrl"
-                     as-sortable="featureSortableOptions | merge: sortableScrollOptions()"
-                     is-disabled="!isSortingFeature()"
-                     ng-model="features">
-                    <div is-watch="feature"
-                         ng-class="{ 'is-selected': isSelected(feature) }"
-                         selectable-id="{{ ::feature.id }}"
-                         as-sortable-item
-                         ng-repeat="feature in features | search | orderBy:orderBy.current.id:orderBy.reverse"
-                         class="postit-container">
-                        <div ng-include="'feature.html'"></div>
-                    </div>
+            <div class="order-1 order-sm-3 col-auto">
+                <a class="btn btn-primary"
+                   ng-if="authorizedFeature('create')"
+                   href="#/{{ ::viewName }}/new">${message(code: "todo.is.ui.feature.new")}</a>
+            </div>
+        </div>
+        <div class="window-alert bg-warning"
+             ng-if="selectableOptions.selectingMultiple">
+            <i class="fa fa-warning"></i> ${message(code: 'todo.is.ui.selectable.bulk.enabled')} (<strong><a href class="link" ng-click="toggleSelectableMultiple()">${message(code: 'todo.is.ui.disable')}</a></strong>)
+        </div>
+        <div class="window-alert bg-warning"
+             ng-if="authorizedFeature('update') && !isSortableFeature()">
+            <i class="fa fa-warning"></i> ${message(code: 'is.ui.feature.rank.disabled')}
+        </div>
+        <div class="card-body scrollable-selectable-container features"
+             selectable="selectableOptions"
+             ng-class="{'has-selected': hasSelected()}">
+            <div ng-if="features.length == 0"
+                 class="empty-view">
+                <p class="form-text">${message(code: 'is.ui.feature.help')}<p>
+                <a class="btn btn-primary"
+                   ng-if="authorizedFeature('create')"
+                   href="#{{ ::viewName }}/new">
+                    ${message(code: 'todo.is.ui.feature.new')}
+                </a>
+            </div>
+            <div ng-if="application.search && features.length != 0 && (features | search).length == 0"
+                 class="empty-view">
+                <p class="form-text">${message(code: 'is.ui.feature.search.empty')} <strong>{{ application.search }}</strong></p>
+                <button class="btn btn-link"
+                        ng-click="application.search = null">
+                    ${message(code: 'todo.is.ui.search.clear')}
+                </button>
+                <a class="btn btn-primary"
+                   ng-if="authorizedFeature('create')"
+                   href="#{{ ::viewName }}/new">
+                    ${message(code: 'todo.is.ui.feature.new')}
+                </a>
+            </div>
+            <div class="sticky-notes {{ currentStickyNoteSize(viewName, 'grid-group') }}"
+                 ng-class="{'sortable-multiple': application.sortableMultiple }"
+                 ng-controller="featureCtrl"
+                 as-sortable="featureSortableOptions | merge: sortableScrollOptions()"
+                 is-disabled="!isSortingFeature()"
+                 ng-model="features">
+                <div is-watch="feature"
+                     ng-class="{ 'is-selected': isSelected(feature) }"
+                     selectable-id="{{ ::feature.id }}"
+                     as-sortable-item
+                     ng-repeat="feature in features | filter: currentFeaturesFilter.filter | search | orderBy:orderBy.current.id:orderBy.reverse"
+                     class="sticky-note-container sticky-note-feature">
+                    <div ng-include="'feature.html'"></div>
                 </div>
             </div>
         </div>

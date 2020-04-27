@@ -26,7 +26,6 @@ package org.icescrum.web.presentation.api
 import grails.converters.JSON
 import grails.plugin.springsecurity.annotation.Secured
 import org.apache.commons.io.FilenameUtils
-import org.apache.commons.validator.GenericValidator
 import org.hibernate.ObjectNotFoundException
 import org.icescrum.components.FileUploadInfo
 import org.icescrum.components.UtilsWebComponents
@@ -80,9 +79,13 @@ class UserController implements ControllerErrorHandler {
         render(status: 200, contentType: 'application/json', text: returnData as JSON)
     }
 
-    @Secured(["hasRole('ROLE_ADMIN')"])
+    @Secured("isAuthenticatedWeb() || hasAnyScopeOauth2('user', 'user:read')")
     def show(long id) {
         User user = User.withUser(id)
+        if (user.id != springSecurityService.principal.id && !request.admin) {
+            render(status: 403)
+            return
+        }
         request.marshaller = [user: [include: ['preferences']]]
         render(status: 200, contentType: 'application/json', text: user as JSON)
     }
@@ -107,13 +110,16 @@ class UserController implements ControllerErrorHandler {
             }
             bindData(user, userParams, [include: propertiesToBind])
             user.preferences = new UserPreferences()
-            bindData(user.preferences, userParams.preferences, [include: ['language', 'activity']])
+            bindData(user.preferences, userParams.preferences, [include: ['language', 'activity', 'needsEmailValidation']])
+            if (userParams.preferences?.containsKey('colorScheme')) {
+                user.preferences.colorScheme = userParams.preferences.colorScheme == 'null' ? null : userParams.preferences.colorScheme
+            }
             userService.save(user, userParams.token)
         }
         render(status: 201, contentType: 'application/json', text: user as JSON)
     }
 
-    @Secured('isAuthenticated()')
+    @Secured("isAuthenticatedWeb() || hasAnyScopeOauth2('user', 'user:write')")
     def update(long id) {
         User user = User.withUser(id)
         if (user.id != springSecurityService.principal.id && !request.admin) {
@@ -153,7 +159,10 @@ class UserController implements ControllerErrorHandler {
             }
             bindData(user, params.user, [include: propertiesToBind])
             if (params.user.preferences) {
-                bindData(user.preferences, params.user.preferences, [include: ['language', 'filterTask', 'activity', 'displayWhatsNew', 'displayReleaseNotes']])
+                bindData(user.preferences, params.user.preferences, [include: ['language', 'filterTask', 'activity', 'displayWhatsNew', 'displayReleaseNotes', 'needsEmailValidation']])
+                if (params.user.preferences.containsKey('colorScheme')) {
+                    user.preferences.colorScheme = params.user.preferences.colorScheme == 'null' ? null : params.user.preferences.colorScheme
+                }
             }
             if (params.user.password?.trim() != '') {
                 props.pwd = params.user.password
@@ -182,6 +191,9 @@ class UserController implements ControllerErrorHandler {
                                         autoFollow  : params.remove('user.preferences.emailsSettings.autoFollow'),
                                         onUrgentTask: params.remove('user.preferences.emailsSettings.onUrgentTask')]
             }
+            if (params.user.preferences && params.user.preferences['iceScrumRating'] != null) {
+                props.iceScrumRating = params.remove('user.preferences.iceScrumRating').toInteger()
+            }
             userService.update(user, props)
         }
         render(status: 200, contentType: 'application/json', text: user as JSON)
@@ -206,35 +218,52 @@ class UserController implements ControllerErrorHandler {
         render(status: 204)
     }
 
-    @Secured(['!isAuthenticated()'])
-    def register() {
-        render(status: 200, template: 'dialogs/register')
+    def register(String token) {
+        if (springSecurityService.isLoggedIn()) {
+            def targetUrl = createLink(absolute: true, controller: 'scrumOS', action: 'index')
+            if (token) {
+                targetUrl += "#/user/register/$token"
+            }
+            redirect(url: targetUrl)
+            return
+        } else {
+            render(status: 200, view: 'register', model: [token: token])
+        }
     }
 
-    def avatar(long id) {
-        withCacheHeaders {
-            File avatar
-            User user = id ? User.withUser(id) : null
-            // If the cache has expired, tell the browser when the last change occured.
-            // If the image has not changed, then the browser will keep using the cached image again for 30 seconds starting from this call
-            // The combination of withCacheHeaders and cache(validFor: 30) ensures that for 1 user and 1 browser, this action is called at most once a minute
-            // and that the image is rendered again only if it has changed
-            delegate.lastModified {
-                user.lastUpdated
-            }
-            generate {
-                if (user) {
-                    avatar = userService.getAvatarFile(user)
+    def avatar(Long id) {
+        User user = id ? User.withUser(id) : null
+        if (user) {
+            withCacheHeaders {
+                // If the cache has expired, tell the browser when the last change occured.
+                // If the image has not changed, then the browser will keep using the cached image again for 30 seconds starting from this call
+                // The combination of withCacheHeaders and cache(validFor: 30) ensures that for 1 user and 1 browser, this action is called at most once a minute
+                // and that the image is rendered again only if it has changed
+                delegate.lastModified {
+                    user.lastUpdated
                 }
-                if (!avatar?.exists()) {
-                    if (ApplicationSupport.booleanValue(grailsApplication.config.icescrum.gravatar?.enable && user)) {
-                        redirect(url: "https://secure.gravatar.com/avatar/" + user.email.encodeAsMD5())
-                        return
+                generate {
+                    File avatar = userService.getAvatarFile(user)
+                    if (!avatar?.exists()) {
+                        if (ApplicationSupport.booleanValue(grailsApplication.config.icescrum.gravatar?.enable && user)) {
+                            redirect(url: "https://secure.gravatar.com/avatar/" + user.email.encodeAsMD5())
+                            return
+                        }
+                        avatar = getAssetAvatarFile("avatar.png")
                     }
-                    avatar = getAssetAvatarFile("avatar.png")
+                    cache(validFor: 30) // The browser will cache the request 30 seconds so it will not call the request again during this duration regardless of if the content has changed
+                    render(file: avatar, contentType: 'image/png')
                 }
-                cache(validFor: 30) // The browser will cache the request 30 seconds so it will not call the request again during this duration regardless of if the content has changed
-                render(file: avatar, contentType: 'image/png')
+            }
+        } else {
+            withCacheHeaders {
+                delegate.lastModified {
+                    new Date(1575371594)
+                }
+                generate {
+                    cache(validFor: 3600)
+                    render(file: getAssetAvatarFile('avatar.png'), contentType: 'image/png')
+                }
             }
         }
     }
@@ -268,68 +297,77 @@ class UserController implements ControllerErrorHandler {
             users = users.unique { it.email }.findAll(userFilter).take(9)
         }
         def enableInvitation = grailsApplication.config.icescrum.registration.enable && grailsApplication.config.icescrum.invitation.enable
-        if (!users && invite && GenericValidator.isEmail(term) && enableInvitation) {
+        if (!users && invite && ApplicationSupport.isValidEmailAddress(term) && enableInvitation) {
             users << [id: null, email: term]
         }
         render(status: 200, contentType: 'application/json', text: users as JSON)
     }
 
-    @Secured(['isAuthenticated()'])
+    @Secured('isAuthenticated()')
     def openProfile() {
         def user = springSecurityService.currentUser
         render(status: 200, template: 'dialogs/profile', model: [user: user, projects: grailsApplication.config.icescrum.alerts.enable ? Project.findAllByRole(user, [BasePermission.WRITE, BasePermission.READ], [cache: true, max: 11], true, false) : null])
     }
 
-    @Secured(['permitAll()'])
+    @Secured("permitAllWeb() || hasAnyScopeOauth2('user', 'user:read')")
     def current() {
         def user = [user : springSecurityService.currentUser?.id ? springSecurityService.currentUser : 'null',
                     roles: securityService.getRolesRequest(true)]
         render(status: 200, contentType: 'application/json', text: user as JSON)
     }
 
-    @Secured(['!isAuthenticated()'])
-    def retrieve() {
-        if (!params.user?.username) {
-            render(status: 200, template: 'dialogs/retrieve')
+    def retrieve(String username) {
+        if (springSecurityService.isLoggedIn()) {
+            redirect(controller: 'scrumOS', action: 'index')
+            return
         } else {
-            def user = User.findWhere(username: params.user.username)
-            if (!user || !user.enabled || user.accountExternal) {
-                def code = !user ? 'is.user.error.not.exist' : (!user.enabled ? 'is.dialog.login.error.disabled' : 'is.user.error.externalAccount')
-                returnError(code: code)
-            } else {
-                try {
-                    User.withTransaction {
-                        userService.resetPassword(user)
-                        render(status: 200, contentType: 'application/json', text: [text: message(code: 'is.dialog.retrieve.success', args: [user.email])] as JSON)
-                    }
-                } catch (MailException e) {
-                    returnError(code: 'is.mail.error', exception: e)
-                } catch (RuntimeException re) {
-                    returnError(text: re.message, exception: re)
-                } catch (Exception e) {
-                    returnError(code: 'is.mail.error', exception: e)
+            if (username) {
+                def user
+                def error
+                user = User.findWhere(username: username)
+                if (!user) {
+                    user = User.findWhere(email: username)
                 }
+                if (!user || !user.enabled || user.accountExternal) {
+                    error = message(code: !user ? 'is.user.error.not.exist' : (!user.enabled ? 'is.login.error.disabled' : 'is.user.error.externalAccount'))
+                } else {
+                    try {
+                        User.withTransaction {
+                            userService.resetPassword(user)
+                        }
+                    } catch (MailException e) {
+                        error = message(code: 'is.mail.error', exception: e)
+                    } catch (Exception e) {
+                        error = message(code: 'is.mail.error', exception: e)
+                    }
+                }
+                if (error) {
+                    render(status: 200, view: 'retrieve', model: [error: error])
+                    return
+                } else {
+                    redirect(url: createLink(absolute: true, controller: 'login', action: 'auth') + '?retrieve=1&username=' + username)
+                    return
+                }
+            } else {
+                render(status: 200, view: 'retrieve')
+                return
             }
         }
     }
 
     @Secured('isAuthenticated()')
-    def menu(long id, String menuId, String position, boolean hidden) {
+    def menu(long id, String menuId, Integer position) {
         User user = springSecurityService.currentUser
         if (id != user.id) {
             render(status: 403)
             return
         }
         if (!menuId && !position) {
-            returnError(code: 'is.user.preferences.error.menu')
+            returnError(code: 'todo.is.ui.no.data')
             return
         }
-        try {
-            userService.menu(user, menuId, position, hidden ?: false)
-            render(status: 200)
-        } catch (RuntimeException e) {
-            returnError(code: 'is.user.preferences.error.menu', exception: e)
-        }
+        userService.updateMenuPosition(user, menuId, position)
+        render(status: 200)
     }
 
     @Secured(['permitAll()'])
@@ -345,7 +383,7 @@ class UserController implements ControllerErrorHandler {
         render(status: 200, text: [isValid: result, value: request.JSON.value] as JSON, contentType: 'application/json')
     }
 
-    @Secured(['isAuthenticated()'])
+    @Secured("isAuthenticatedWeb() || hasAnyScopeOauth2('user', 'user:history')")
     def activities(long id) {
         User user = springSecurityService.currentUser
         if (id != user.id) {
@@ -358,7 +396,7 @@ class UserController implements ControllerErrorHandler {
             def project = story.backlog
             [
                     activity: activity,
-                    story   : [uid: story.uid, name: story.name],
+                    story   : [uid: story.uid, name: story.name, permalink: story.permalink],
                     project : [pkey: project.pkey, name: project.name],
                     notRead : activity.dateCreated > user.preferences.lastReadActivities
             ]
@@ -407,7 +445,7 @@ class UserController implements ControllerErrorHandler {
             def extension = FilenameUtils.getExtension(avatar)
             avatarPath = "assets/avatars/${baseName}.${extension}"
         } else {
-            avatarPath = "../grails-app/${avatarFileName}"
+            avatarPath = "../grails-app/assets/images/avatars/${avatarFileName}"
         }
         return grailsApplication.parentContext.getResource(avatarPath).file
     }

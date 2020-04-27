@@ -22,37 +22,31 @@
 --}%
 
 <is:modal title="${message(code: 'is.ui.team.menu')}"
-          class="split-modal"
+          class="modal-split"
           footer="${false}">
     <div class="row">
-        <div class="left-panel col-sm-3">
-            <div class="left-panel-header">
-                <div class="input-group">
-                    <input type="text"
-                           ng-model="teamSearch"
-                           ng-change="searchTeams()"
-                           ng-model-options="{debounce: 300}"
-                           class="form-control"
-                           placeholder="${message(code: 'todo.is.ui.search.action')}">
-                    <span class="input-group-btn">
-                        <button class="btn btn-default"
-                                type="button"
-                                ng-click="teamSearch = null; searchTeams()">
-                            <i class="fa" ng-class="teamSearch ? 'fa-times' : 'fa-search'"></i>
-                        </button>
-                    </span>
-                </div>
+        <div class="col-sm-3 modal-split-left">
+            <div class="modal-split-search">
+                <input type="text"
+                       ng-model="teamSearch"
+                       ng-change="searchTeams()"
+                       ng-model-options="{debounce: 300}"
+                       class="form-control search-input"
+                       placeholder="${message(code: 'todo.is.ui.search.action')}">
             </div>
-            <ul class="left-panel-body nav nav-list">
-                <li ng-class="{ 'current': team.id == currentTeam.id }" ng-repeat="currentTeam in teams">
-                    <a ng-click="selectTeam(currentTeam)" href>{{ currentTeam.name }}</a>
+            <ul class="nav nav-pills flex-column">
+                <li class="nav-item"
+                    ng-repeat="currentTeam in teams">
+                    <a class="nav-link"
+                       ng-class="{ 'active': team.id == currentTeam.id }"
+                       ng-click="selectTeam(currentTeam)" href>{{ currentTeam.name }}</a>
                 </li>
             </ul>
-            <div class="left-panel-bottom">
+            <div class="modal-split-pagination">
                 <div uib-pagination
                      boundary-links="true"
                      previous-text="&lsaquo;" next-text="&rsaquo;" first-text="&laquo;" last-text="&raquo;"
-                     class="pagination-sm"
+                     class="pagination-sm justify-content-center mt-2"
                      max-size="3"
                      total-items="totalTeams"
                      items-per-page="teamsPerPage"
@@ -61,12 +55,12 @@
                 </div>
             </div>
         </div>
-        <div class="right-panel col-sm-9" ng-switch="teamSelected()">
+        <div class="col-sm-9 modal-split-right" ng-switch="teamSelected()">
             <div ng-switch-default>
-                <div class="help-block">
+                <p class="form-text">
                     ${message(code: 'is.ui.team.help')}
                     <documentation doc-url="roles-teams-projects"/>
-                </div>
+                </p>
                 <form ng-submit="save(newTeam)"
                       name="formHolder.newTeamForm"
                       show-validation
@@ -80,8 +74,8 @@
                                type="text"
                                class="form-control">
                     </div>
-                    <div class="btn-toolbar pull-right">
-                        <button class="btn btn-primary pull-right"
+                    <div class="btn-toolbar float-right">
+                        <button class="btn btn-primary float-right"
                                 ng-disabled="!formHolder.newTeamForm.$dirty || formHolder.newTeamForm.$invalid || application.submitting"
                                 type="submit">
                             ${message(code: 'default.button.create.label')}
@@ -90,62 +84,42 @@
                 </form>
             </div>
             <div ng-switch-when="true">
-                <div class="help-block">
+                <p class="form-text">
                     ${message(code: 'is.ui.user.add' + (grailsApplication.config.icescrum.invitation.enable ? '' : '.invite'))}
-                </div>
+                </p>
                 <form ng-submit="update(team)"
                       name="formHolder.updateTeamForm"
                       show-validation
                       novalidate>
-                    <div class="col-sm-12 form-group">
-                        <label for="team.owner">
-                            ${message(code: 'is.role.owner')}
-                            <entry:point id="team-list-owner"/>
-                        </label>
-                        <span class="form-control-static"
-                              ng-if="!authorizedTeam('changeOwner', team)">{{ team.owner | userFullName }}</span>
-                        <ui-select class="form-control"
-                                   name="owner"
-                                   ng-if="authorizedTeam('changeOwner', team)"
-                                   ng-model="team.owner">
-                            <ui-select-match>{{ $select.selected | userFullName }}</ui-select-match>
-                            <ui-select-choices repeat="ownerCandidate in ownerCandidates">{{ ownerCandidate | userFullName }}</ui-select-choices>
-                        </ui-select>
-                    </div>
-                    <div class="form-half">
-                        <label for="team.name">${message(code: 'todo.is.ui.name')}</label>
-                        <input required
-                               ng-maxlength="100"
-                               name="team.name"
-                               ng-model="team.name"
-                               type="text"
-                               class="form-control">
-                    </div>
-                    <div class="form-half">
-                        <label for="member.search">${message(code: 'todo.is.ui.select.member')}</label>
-                        <p class="input-group">
-                            <input autocomplete="off"
+                    <div class="row is-form-row">
+                        <div class="form-half">
+                            <label for="team.name">${message(code: 'todo.is.ui.name')}</label>
+                            <input required
+                                   ng-maxlength="100"
+                                   name="team.name"
+                                   ng-model="team.name"
                                    type="text"
-                                   name="member.search"
-                                   id="member.search"
-                                   autofocus
-                                   class="form-control"
-                                   placeholder="${message(code: 'is.ui.user.search.placeholder' + (grailsApplication.config.icescrum.user.search.enable ? '' : '.email'))}"
-                                   ng-model="member.name"
-                                   uib-typeahead="member as member.name for member in searchMembers($viewValue)"
-                                   typeahead-loading="searchingMember"
-                                   typeahead-min-length="2"
-                                   typeahead-wait-ms="250"
-                                   typeahead-on-select="addTeamMember($item, $model, $label)"
-                                   typeahead-template-url="select.member.html">
-                            <span class="input-group-addon">
-                                <i class="fa" ng-class="{ 'fa-search': !searchingMember, 'fa-refresh':searchingMember, 'fa-close':member.name }"></i>
-                            </span>
-                        </p>
+                                   class="form-control">
+                        </div>
+                        <div class="form-half">
+                            <label for="team.owner" class="d-flex align-items-center">
+                                <div>${message(code: 'is.role.owner')}</div>
+                                <entry:point id="team-list-owner"/>
+                            </label>
+                            <span class="form-control-plaintext"
+                                  ng-if="!authorizedTeam('changeOwner', team)">{{ team.owner | userFullName }}</span>
+                            <ui-select class="form-control"
+                                       name="owner"
+                                       ng-if="authorizedTeam('changeOwner', team)"
+                                       ng-model="team.owner">
+                                <ui-select-match>{{ $select.selected | userFullName }}</ui-select-match>
+                                <ui-select-choices repeat="ownerCandidate in ownerCandidates">{{ ownerCandidate | userFullName }}</ui-select-choices>
+                            </ui-select>
+                        </div>
                     </div>
-                    <div class="col-sm-12 form-group">
+                    <div class="form-group">
                         <label>${message(code: 'is.ui.projects')}</label>
-                        <div class="form-control-static"
+                        <div class="form-control-plaintext"
                              ng-if="projects.length">
                             <span ng-repeat="project in projects">
                                 <a ng-if="isCurrentProject(project)"
@@ -162,14 +136,38 @@
                             </span>
                         </div>
                         <div ng-if="projects != undefined && !projects.length">
-                            <a class="btn btn-primary"
+                            <a class="btn btn-primary btn-sm"
                                ng-click="$close(true)"
                                ui-sref="newProject">
                                 ${message(code: 'todo.is.ui.project.createNew')}
                             </a>
                         </div>
                     </div>
-                    <table ng-if="team.members.length" class="table table-striped table-responsive">
+                    <div class="form-group">
+                        <label for="member.search">${message(code: 'todo.is.ui.select.member')}</label>
+                        <p class="input-group">
+                            <input autocomplete="off"
+                                   type="text"
+                                   name="member.search"
+                                   id="member.search"
+                                   autofocus
+                                   class="form-control"
+                                   placeholder="${message(code: 'is.ui.user.search.placeholder' + (grailsApplication.config.icescrum.user.search.enable ? '' : '.email'))}"
+                                   ng-model="member.name"
+                                   uib-typeahead="member as member.name for member in searchMembers($viewValue)"
+                                   typeahead-loading="searchingMember"
+                                   typeahead-min-length="2"
+                                   typeahead-wait-ms="250"
+                                   typeahead-on-select="addTeamMember($item, $model, $label)"
+                                   typeahead-template-url="select.member.html">
+                            <span class="input-group-append">
+                                <span class="input-group-text">
+                                    <i class="fa" ng-class="{ 'fa-search': !searchingMember, 'fa-refresh':searchingMember, 'fa-close':member.name }"></i>
+                                </span>
+                            </span>
+                        </p>
+                    </div>
+                    <table ng-if="team.members.length" class="table table-striped">
                         <thead>
                             <tr>
                                 <th colspan="2">${message(code: 'is.ui.team.members')} ({{ team.members.length }})</th>
@@ -180,11 +178,11 @@
                                ng-include="'wizard.members.list.html'">
                         </tbody>
                     </table>
-                    <div ng-if="team.members.length == 0">
+                    <div ng-if="team.members.length == 0" class="form-text">
                         ${message(code: 'todo.is.ui.team.no.members')}
                     </div>
-                    <div class="btn-toolbar pull-right">
-                        <button class="btn btn-default"
+                    <div class="btn-toolbar float-right">
+                        <button class="btn btn-secondary"
                                 type="button"
                                 ng-click="cancel()">
                             ${message(code: 'is.button.cancel')}
@@ -192,7 +190,7 @@
                         <button ng-if="authorizedTeam('delete', team) && team.projects_count == 0"
                                 class="btn btn-danger"
                                 type="button"
-                                ng-click="confirmDelete({ callback: delete, args: [team] })">
+                                delete-button-click="delete(team)">
                             ${message(code: 'default.button.delete.label')}
                         </button>
                         <button class="btn btn-primary"

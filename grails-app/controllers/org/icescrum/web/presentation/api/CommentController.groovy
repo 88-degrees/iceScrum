@@ -18,140 +18,115 @@
  * Authors:
  *
  * Vincent Barrier (vbarrier@kagilum.com)
+ * Nicolas Noullet (nnoullet@kagilum.com)
  *
  */
 package org.icescrum.web.presentation.api
 
 import grails.converters.JSON
 import grails.plugin.springsecurity.annotation.Secured
+import grails.util.GrailsNameUtils
 import org.grails.comments.Comment
-import org.icescrum.core.domain.Story
-import org.icescrum.core.domain.Task
+import org.icescrum.core.domain.*
 import org.icescrum.core.error.ControllerErrorHandler
-import org.icescrum.core.event.IceScrumEventType
-import org.icescrum.core.support.ApplicationSupport
+import org.icescrum.core.security.WorkspaceSecurity
 
-class CommentController implements ControllerErrorHandler {
+@Secured('permitAll()')
+class CommentController implements ControllerErrorHandler, WorkspaceSecurity {
 
     def springSecurityService
-    def activityService
+    def commentService
 
-    @Secured('stakeHolder() or inProject()')
-    def index() {
-        def commentable = params.commentable ? commentableObject : null
+    def index(long workspace, String workspaceType, Long commentable, String type) {
+        if (!checkPermission(
+                project: 'stakeHolder() or inProject()',
+                portfolio: 'businessOwner() or portfolioStakeHolder()'
+        )) {
+            return
+        }
         def comments
+        def _commentable
         if (commentable) {
-            comments = commentable.comments
+            _commentable = commentService.withCommentable(workspace, workspaceType, commentable, type)
+            comments = _commentable.comments
         } else {
-            comments = params.type == 'story' ? Story.recentCommentsInProject(params.project) : Task.recentCommentsInProject(params.project)
+            if (type == 'feature') {
+                if (workspaceType == WorkspaceType.PORTFOLIO) {
+                    comments = Feature.recentCommentsInPortfolio(workspace)
+                } else if (workspaceType == WorkspaceType.PROJECT) {
+                    comments = Feature.recentCommentsInProject(workspace)
+                }
+            } else if (type == 'task') {
+                comments = Task.recentCommentsInProject(workspace)
+            } else {
+                comments = Story.recentCommentsInProject(workspace)
+            }
         }
         render(status: 200, contentType: 'application/json', text: comments.collect { Comment comment ->
-            ApplicationSupport.getRenderableComment(comment, commentable)
+            commentService.getRenderableComment(comment, _commentable)
         } as JSON)
     }
 
-    @Secured('stakeHolder() or inProject()')
-    def show() {
-        if (!params.id) {
-            returnError(code: 'is.comment.error.not.exist')
+    def show(long id, long workspace, String workspaceType) {
+        if (!checkPermission(
+                project: 'stakeHolder() or inProject()',
+                portfolio: 'businessOwner() or portfolioStakeHolder()'
+        )) {
             return
         }
-        def comment = Comment.get(params.long('id'))
-        if (!comment) {
-            returnError(code: 'is.comment.error.not.exist')
-            return
-        }
-        render(status: 200, contentType: 'application/json', text: ApplicationSupport.getRenderableComment(comment) as JSON)
+        Comment comment = commentService.withComment(workspace, workspaceType, id)
+        render(status: 200, contentType: 'application/json', text: commentService.getRenderableComment(comment) as JSON)
     }
 
-    @Secured('((isAuthenticated() and stakeHolder()) or inProject()) and !archivedProject()')
-    def save() {
-        def poster = springSecurityService.currentUser
-        def commentable = commentableObject
-        if (params['comment'] instanceof Map) {
-            Comment.withTransaction {
-                grailsApplication.mainContext[params.type + 'Service'].publishSynchronousEvent(IceScrumEventType.BEFORE_UPDATE, commentable, ['addComment': null])
-                commentable.addComment(poster, params.comment.body)
-                activityService.addActivity(commentable, poster, 'comment', commentable.name);
-                Comment comment = commentable.comments.sort { it1, it2 -> it1.dateCreated <=> it2.dateCreated }?.last()
-                if (params.type == 'story') {
-                    commentable.addToFollowers(poster)
-                }
-                if (commentable.hasProperty('comments_count')) {
-                    commentable.comments_count = commentable.getTotalComments()
-                }
-                grailsApplication.mainContext[params.type + 'Service'].publishSynchronousEvent(IceScrumEventType.UPDATE, commentable, ['addedComment': comment])
-                render(status: 201, contentType: 'application/json', text: ApplicationSupport.getRenderableComment(comment, commentable) as JSON)
+    def save(long workspace, String workspaceType) {
+        if (!checkPermission(
+                project: '((isAuthenticated() and stakeHolder()) or inProject()) and !archivedProject()',
+                portfolio: 'businessOwner() or portfolioStakeHolder()'
+        )) {
+            return
+        }
+        Comment.withTransaction {
+            long commentableId = params.long('comment.commentable.id')
+            String commentableType = GrailsNameUtils.getPropertyName(params.comment.commentable.class)
+            def _commentable = commentService.withCommentable(workspace, workspaceType, commentableId, commentableType)
+            Comment comment = commentService.save(_commentable, ((User) springSecurityService.currentUser), [body: params.comment.body])
+            render(status: 201, contentType: 'application/json', text: commentService.getRenderableComment(comment, _commentable) as JSON)
+        }
+    }
+
+    def update(long id, long workspace, String workspaceType) {
+        if (!checkPermission(
+                project: 'isAuthenticated() and !archivedProject()',
+                portfolio: 'businessOwner() or portfolioStakeHolder()'
+        )) {
+            return
+        }
+        Comment.withTransaction {
+            def comment = commentService.withComment(workspace, workspaceType, id)
+            if (comment.posterId != springSecurityService.currentUser.id) {
+                render(status: 403)
+                return
             }
-        } else {
-            render(status: 400)
+            commentService.update(comment, [body: params.comment.body])
+            render(status: 200, contentType: 'application/json', text: commentService.getRenderableComment(comment) as JSON)
         }
     }
 
-    @Secured('isAuthenticated() and !archivedProject()')
-    def update() {
-        if (params.id == null) {
-            returnError(code: 'is.ui.backlogelement.comment.error.not.exists')
+    def delete(long id, long workspace, String workspaceType) {
+        if (!checkPermission(
+                project: 'isAuthenticated() and !archivedProject()',
+                portfolio: 'businessOwner() or portfolioStakeHolder()'
+        )) {
             return
         }
-        def comment = Comment.get(params.long('id'))
-        if (!comment) {
-            render(status: 404)
-            return
-        } else if (comment.posterId != springSecurityService.currentUser.id) {
-            render(status: 403)
-            return
+        Comment.withTransaction {
+            def comment = commentService.withComment(workspace, workspaceType, id)
+            if ((workspaceType == WorkspaceType.PROJECT && !request.productOwner && !request.scrumMaster || workspaceType == WorkspaceType.PORTFOLIO && !request.businessOwner) && comment.posterId != springSecurityService.currentUser.id) {
+                render(status: 403)
+                return
+            }
+            commentService.delete(comment)
+            render(status: 204)
         }
-        def commentable = commentableObject
-        comment.body = params.comment.body
-        grailsApplication.mainContext[params.type + 'Service'].publishSynchronousEvent(IceScrumEventType.BEFORE_UPDATE, commentable, ['updatedComment': comment])
-        comment.save()
-        grailsApplication.mainContext[params.type + 'Service'].publishSynchronousEvent(IceScrumEventType.UPDATE, commentable, ['updatedComment': comment])
-        render(status: 200, contentType: 'application/json', text: ApplicationSupport.getRenderableComment(comment) as JSON)
-    }
-
-    @Secured('isAuthenticated() and !archivedProject()')
-    def delete() {
-        if (params.id == null) {
-            returnError(code: 'is.ui.backlogelement.comment.error.not.exists')
-            return
-        }
-        if (params.commentable == null) {
-            returnError(code: 'is.backlogelement.error.not.exist')
-            return
-        }
-        def comment = Comment.get(params.long('id'))
-        if (!comment) {
-            render(status: 404)
-            return
-        } else if (!request.productOwner && !request.scrumMaster && comment.posterId != springSecurityService.currentUser.id) {
-            render(status: 403)
-            return
-        }
-        def commentable = commentableObject
-        grailsApplication.mainContext[params.type + 'Service'].publishSynchronousEvent(IceScrumEventType.UPDATE, commentable, ['removeComment': comment])
-        commentable.removeComment(comment)
-        if (commentable.hasProperty('comments_count')) {
-            commentable.comments_count = commentable.getTotalComments()
-        }
-        grailsApplication.mainContext[params.type + 'Service'].publishSynchronousEvent(IceScrumEventType.UPDATE, commentable, ['removedComment': comment])
-        render(status: 204)
-    }
-
-    private getCommentableObject() {
-        def commentable
-        long project = params.long('project')
-        long commentableId = params.long('commentable')
-        switch (params.type) {
-            case 'story':
-                commentable = Story.getInProject(project, commentableId).list()
-                break
-            case 'task':
-                commentable = Task.getInProject(project, commentableId)
-                break
-            default:
-                commentable = null
-        }
-        commentable
     }
 }

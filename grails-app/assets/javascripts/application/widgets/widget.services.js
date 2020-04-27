@@ -26,7 +26,7 @@ services.factory('Widget', ['Resource', function($resource) {
     return $resource('ui/widget/:widgetDefinitionId/:id?nocache=' + (new Date()).getTime()); //fix weird safari no-cache control from server
 }]);
 
-services.service("WidgetService", ['CacheService', 'FormService', '$q', 'Widget', 'Session', function(CacheService, FormService, $q, Widget, Session) {
+services.service("WidgetService", ['CacheService', 'FormService', 'WorkspaceType', '$q', 'Widget', 'Session', function(CacheService, FormService, WorkspaceType, $q, Widget, Session) {
     this.list = function() {
         var cachedWidgets = CacheService.getCache('widget');
         return _.isEmpty(cachedWidgets) ? Widget.query({}, function(widgets) {
@@ -65,13 +65,14 @@ services.service("WidgetService", ['CacheService', 'FormService', '$q', 'Widget'
     this.authorizedWidget = function(action, widget) {
         switch (action) {
             case 'move':
-                return Session.authenticated();
             case 'create':
             case 'update':
             case 'delete':
                 switch (Session.workspaceType) {
-                    case 'portfolio':
+                    case WorkspaceType.PORTFOLIO:
                         return Session.bo();
+                    case WorkspaceType.PROJECT:
+                        return Session.poOrSm();
                     default:
                         return Session.authenticated();
                 }

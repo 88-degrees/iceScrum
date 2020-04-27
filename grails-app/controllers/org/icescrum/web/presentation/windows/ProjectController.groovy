@@ -169,7 +169,11 @@ class ProjectController implements ControllerErrorHandler {
     def delete(long project) {
         try {
             Project _project = Project.withProject(project)
+            def team = _project.team
             projectService.delete(_project)
+            if (team.projects.size() == 0 && _project.name.startsWith("Peetic")) {
+                teamService.delete(team)
+            }
             render(status: 200, contentType: 'application/json', text: [class: 'Project', id: project] as JSON)
         } catch (RuntimeException re) {
             returnError(code: 'is.project.error.not.deleted', exception: re)
@@ -311,10 +315,10 @@ class ProjectController implements ControllerErrorHandler {
         def values = projectService.projectVelocityCapacityValues(_project)
         def computedValues = [[key   : message(code: 'is.sprint.velocity'),
                                values: values.collect { return [it.velocity] },
-                               color : '#009900'],
+                               color : '#50e3c2'],
                               [key   : message(code: 'is.sprint.plannedVelocity'),
                                values: values.collect { return [it.capacity] },
-                               color : '#1C3660']]
+                               color : '#00abfc']]
         def options = [chart: [yDomain: [0, values.collect { [it.velocity, it.capacity].max() }.max()],
                                yAxis  : [axisLabel: message(code: 'is.chart.projectVelocityCapacity.yaxis.label')],
                                xAxis  : [axisLabel: message(code: 'is.chart.projectVelocityCapacity.xaxis.label')]],
@@ -328,10 +332,10 @@ class ProjectController implements ControllerErrorHandler {
         def values = projectService.projectBurnupValues(_project)
         def computedValues = [[key   : message(code: "is.chart.projectBurnUp.serie.all.name"),
                                values: values.collect { return [it.all] },
-                               color : '#1C3660'],
+                               color : '#00abfc'],
                               [key   : message(code: "is.chart.projectBurnUp.serie.done.name"),
                                values: values.collect { return [it.done] },
-                               color : '#009900']]
+                               color : '#50e3c2']]
         def options = [chart: [yAxis: [axisLabel: message(code: 'is.chart.projectBurnUp.yaxis.label')],
                                xAxis: [axisLabel: message(code: 'is.chart.projectBurnUp.xaxis.label')]],
                        title: [text: message(code: "is.chart.projectBurnUp.title")]]
@@ -465,36 +469,6 @@ class ProjectController implements ControllerErrorHandler {
         }
         def returnData = paginate ? [projects: projects.drop(page ? (page - 1) * count : 0).take(count), count: projects.size()] : projects
         render(status: 200, contentType: 'application/json', text: returnData as JSON)
-    }
-
-    @Secured(['permitAll()'])
-    def listPublicWidget() {
-        def publicProjects = Project.withCriteria() {
-            preferences {
-                eq('hidden', false)
-            }
-            not {
-                like("name", "Peetic %")
-            }
-            order("dateCreated", "desc")
-            maxResults(9)
-        }
-        request.marshaller = [
-                project: [
-                        include: ['currentOrNextRelease', 'backlogs', 'allUsers']
-                ],
-                user   : [
-                        excludeAll : true,
-                        overrideAll: true,
-                        include    : ['firstName', 'lastName']
-                ],
-                backlog: [
-                        excludeAll : true,
-                        overrideAll: true,
-                        include    : ['code', 'chartType']
-                ]
-        ]
-        render(status: 200, contentType: 'application/json', text: publicProjects as JSON)
     }
 
     @Secured(['isAuthenticated()'])
@@ -666,8 +640,8 @@ class ProjectController implements ControllerErrorHandler {
 
     private void lightProjectMarshaller(def options) {
         request.marshaller = [
-                project  : [excludeAll: true, overrideInclude: true, include: ['pkey', 'name', 'portfolio']],
-                portfolio: [excludeAll: true, overrideInclude: true,]
+                project  : [excludeAll: true, dontExclude: ['pkey', 'name', 'portfolio', 'stories', 'releases'], overrideInclude: true, include: ['team']],
+                portfolio: [excludeAll: true, overrideInclude: true]
         ]
         if (options != true && options != "true") {
             request.marshaller.project.include.addAll(options.tokenize(','))

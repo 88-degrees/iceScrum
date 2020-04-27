@@ -23,7 +23,9 @@
  */
 
 
+import grails.plugin.springsecurity.SecurityFilterPosition
 import grails.plugin.springsecurity.SpringSecurityService
+import grails.plugin.springsecurity.userdetails.GrailsUser
 import grails.util.Holders
 import grails.util.Metadata
 import org.apache.log4j.DailyRollingFileAppender
@@ -45,6 +47,7 @@ icescrum {
     invitation.enable = false
     user.search.enable = true
     gravatar.enable = true
+    announcement.enable = true
 
     alerts {
         subject_prefix = "[icescrum]"
@@ -89,7 +92,7 @@ icescrum {
 
     cors {
         enable = true
-        url.pattern = '/ws/*'
+        url.pattern = ['/ws/*', '/assets/*']
     }
 
     check {
@@ -107,6 +110,8 @@ icescrum {
         interval = 1440
         timeout = 5000
     }
+
+    feedback.enable = true
 
     /* Server warnings to display to users */
     warnings = []
@@ -130,8 +135,7 @@ icescrum {
     workspaces = [
             project: [
                     path        : 'p',
-                    icon        : 'folder',
-                    type        : 'project',
+                    type        : WorkspaceType.PROJECT,
                     objectClass : Project,
                     config      : { project -> [key: project.pkey, path: 'p'] },
                     params      : { project -> [project: project.id] },
@@ -148,24 +152,28 @@ icescrum {
                     },
                     enabled     : { application -> true },
                     hooks       : [
-                            events: [
-                                    "feature.create", "feature.update", "feature.delete",
+                            events       : [
+                                    "feature.create", "feature.update", "feature.delete", "feature.addedComment", "feature.updatedComment", "feature.removedComment",
                                     "story.create", "story.update", "story.delete", "story.state", "story.addedComment", "story.updatedComment", "story.removedComment",
                                     "task.create", "task.update", "task.delete", "task.state", "task.addedComment", "task.updatedComment", "task.removedComment",
                                     "release.create", "release.update", "release.delete", "release.state",
                                     "sprint.create", "sprint.update", "sprint.delete", "sprint.state",
                                     "acceptanceTest.create", "acceptanceTest.update", "acceptanceTest.delete", "acceptanceTest.state",
-                                    "actor.create", "actor.update", "actor.delete"
-                            ]
+                                    "actor.create", "actor.update", "actor.delete",
+                                    "meeting.create", "meeting.update", "meeting.delete"
+                            ],
+                            defaultEvents: ["story.create", "story.update", "story.delete", "story.state"],
                     ]
             ]
     ]
 
-    hooks = [
-            events: [
-                    "user.create", "user.update", "user.delete", "project.create", "project.update", "project.delete"
-            ]
-    ]
+    hooks {
+        events = ["user.create", "user.update", "user.delete", "project.create", "project.update", "project.delete"]
+        enable = false
+        disableAfterErrors = 5
+        httpTimeout = new Integer(3 * 1000)
+        socketTimeout = new Integer(10 * 1000)
+    }
 
     atmosphere {
         maxUsers = []
@@ -182,11 +190,11 @@ icescrum {
             portfolio           : [include: ['businessOwners', 'stakeHolders', 'invitedBusinessOwners', 'invitedStakeHolders'],
                                    asShort: ['name', 'fkey'],
                                    textile: ['description']],
-            story               : [include: ['testState', 'tags', 'dependences', 'countDoneTasks', 'totalRemainingTime', 'project'],
+            story               : [include: ['testState', 'tags', 'dependences', 'countDoneTasks', 'totalRemainingTime', 'project', 'permalink'],
                                    exclude: ['voters', 'metaDatas'],
                                    withIds: ['actors', 'followers'],
                                    textile: ['notes'],
-                                   asShort: ['state', 'effort', 'uid', 'name', 'rank', 'project']],
+                                   asShort: ['state', 'effort', 'uid', 'name', 'rank', 'project', 'permalink']],
             project             : [include: ['owner', 'productOwners', 'stakeHolders', 'invitedStakeHolders', 'invitedProductOwners', 'simpleProjectApps', 'team', 'storyStateNames'],
                                    asShort: ['pkey'],
                                    exclude: ['cliches', 'teams', 'goal', 'metaDatas'],
@@ -194,16 +202,17 @@ icescrum {
             team                : [include: ['members', 'scrumMasters', 'invitedScrumMasters', 'invitedMembers', 'owner']],
             task                : [exclude: ['participants', 'spent', 'metaDatas'],
                                    textile: ['notes'],
-                                   include: ['tags', 'sprint']],
+                                   asShort: ['permalink'],
+                                   include: ['tags', 'sprint', 'permalink']],
             user                : [exclude: ['password', 'accountExpired', 'accountLocked', 'passwordExpired', 'tokens', 'preferences'],
                                    asShort: ['firstName', 'lastName'],
                                    include: ['admin']],
             actor               : [asShort: ['name']],
-            feature             : [include: ['countDoneStories', 'state', 'effort', 'tags', 'inProgressDate', 'doneDate', 'project'],
+            feature             : [include: ['countDoneStories', 'state', 'effort', 'tags', 'inProgressDate', 'project', 'actualReleases', 'permalink'],
                                    exclude: ['metaDatas'],
                                    withIds: ['stories'],
                                    textile: ['notes'],
-                                   asShort: ['color', 'name']],
+                                   asShort: ['color', 'name', 'permalink']],
             sprint              : [include: ['activable', 'reactivable', 'totalRemaining', 'duration', 'index', 'plannedVelocity', 'fullName'],
                                    exclude: ['cliches', 'metaDatas'],
                                    withIds: ['stories'],
@@ -221,8 +230,8 @@ icescrum {
                                    exclude: ['userPreferences']],
             usertoken           : [:],
             userpreferences     : [include: ['emailsSettings'],
-                                   exclude: ['user', 'menu', 'menuHidden', 'emailsSettingsData', 'widgets']],
-            projectpreferences  : [asShort: ['archived', 'noEstimation', 'autoDoneStory', 'displayRecurrentTasks', 'displayUrgentTasks', 'hidden', 'limitUrgentTasks', 'assignOnCreateTask',
+                                   exclude: ['user', 'menu', 'emailsSettingsData', 'widgets']],
+            projectpreferences  : [asShort: ['archived', 'noEstimation', 'autoDoneStory', 'autoDoneFeature', 'autoInReviewStory', 'displayRecurrentTasks', 'displayUrgentTasks', 'hidden', 'limitUrgentTasks', 'assignOnCreateTask',
                                              'stakeHolderRestrictedViews', 'assignOnBeginTask', 'autoCreateTaskOnEmptyStory', 'timezone', 'estimatedSprintsDuration', 'hideWeekend']],
             attachment          : [include: ['filename']],
             acceptancetest      : [include: ['parentProject'],
@@ -234,18 +243,21 @@ icescrum {
                                    exclude: ['parentProject']],
             timeboxnotestemplate: [include: ['configs'],
                                    exclude: ['configsData']],
-            invitation          : [include: ['project', 'team', 'portfolio']]
+            invitation          : [include: ['project', 'team', 'portfolio']],
+            hook                : [:],
+            meeting             : [:]
     ]
 
     resourceBundles = [
             featureTypes           : [
-                    (Feature.TYPE_FUNCTIONAL)   : 'is.feature.type.functional',
-                    (Feature.TYPE_ARCHITECTURAL): 'is.feature.type.architectural'
+                    (Feature.TYPE_FUNCTIONAL): 'is.feature.type.functional',
+                    (Feature.TYPE_ENABLER)   : 'is.feature.type.enabler'
             ],
             featureStates          : [
-                    (Feature.STATE_WAIT): 'is.feature.state.wait',
-                    (Feature.STATE_BUSY): 'is.feature.state.inprogress',
-                    (Feature.STATE_DONE): 'is.feature.state.done'
+                    (Feature.STATE_DRAFT): 'is.feature.state.draft',
+                    (Feature.STATE_WAIT) : 'is.feature.state.wait',
+                    (Feature.STATE_BUSY) : 'is.feature.state.inprogress',
+                    (Feature.STATE_DONE) : 'is.feature.state.done'
             ],
             storyStates            : [
                     (Story.STATE_FROZEN)    : 'is.story.state.frozen',
@@ -258,14 +270,14 @@ icescrum {
                     (Story.STATE_DONE)      : 'is.story.state.done'
             ],
             storyStatesColor       : [
-                    (Story.STATE_FROZEN)    : '#AAAAAA',
-                    (Story.STATE_SUGGESTED) : '#FFCC04',
-                    (Story.STATE_ACCEPTED)  : '#FF9933',
-                    (Story.STATE_ESTIMATED) : '#CC3300',
-                    (Story.STATE_PLANNED)   : '#A46BFF',
-                    (Story.STATE_INPROGRESS): '#42A9E0',
-                    (Story.STATE_INREVIEW)  : '#005769',
-                    (Story.STATE_DONE)      : '#009900'
+                    (Story.STATE_FROZEN)    : '#aaaaaa',
+                    (Story.STATE_SUGGESTED) : '#ffcc01',
+                    (Story.STATE_ACCEPTED)  : '#ff6b1c',
+                    (Story.STATE_ESTIMATED) : '#ff3333',
+                    (Story.STATE_PLANNED)   : '#c88cff',
+                    (Story.STATE_INPROGRESS): '#00abfc',
+                    (Story.STATE_INREVIEW)  : '#002ee8',
+                    (Story.STATE_DONE)      : '#27d285'
             ],
             storyTypes             : [
                     (Story.TYPE_USER_STORY)     : 'is.story.type.story',
@@ -273,9 +285,9 @@ icescrum {
                     (Story.TYPE_TECHNICAL_STORY): 'is.story.type.technical'
             ],
             storyTypesColor        : [
-                    (Story.TYPE_USER_STORY)     : '#35aa47',
-                    (Story.TYPE_DEFECT)         : '#d84a38',
-                    (Story.TYPE_TECHNICAL_STORY): '#5bc0de'
+                    (Story.TYPE_USER_STORY)     : '#4cd1b0',
+                    (Story.TYPE_DEFECT)         : '#d0021b',
+                    (Story.TYPE_TECHNICAL_STORY): '#4a90e2'
             ],
             storyTypesCliche       : [
                     (Story.TYPE_USER_STORY)     : Cliche.FUNCTIONAL_STORY_PROJECT_REMAINING_POINTS,
@@ -332,6 +344,14 @@ icescrum {
                     'effort': 'is.story.effort'
             ]
     ]
+    beta {
+        enable = false
+        features = ['usersOnline'] //should be [] if no features
+    }
+    security {
+        authorizedTokenHeaders = ['X-Gitlab-Token', 'X-Auth-Token']
+    }
+    clientsOauth {} // Needs to be set for plugins
 }
 
 println "| Server Timezone: ${icescrum.timezone.default}"
@@ -361,9 +381,7 @@ grails.mail.props = ["mail.smtp.auth":"true",
                      "mail.smtp.socketFactory.fallback":"false"]*/
 
 /* Assets */
-grails.assets.less.compile = 'less4j'
-grails.assets.excludes = ["**/*.less"]
-grails.assets.includes = ["styles.less"]
+grails.assets.excludes = ["**/*.scss"]
 grails.assets.plugin."commentable".excludes = ["**/*"]
 grails.assets.plugin."hd-image-utils".excludes = ["**/*"]
 grails.assets.enableGzip = true
@@ -371,18 +389,18 @@ grails.assets.enableGzip = true
 /*
  Attachmentable section
  */
-grails.attachmentable.storyDir = { "${File.separator + it.backlog.id + File.separator}attachments${File.separator}stories${File.separator + it.id + File.separator}" }
-grails.attachmentable.featureDir = { "${File.separator + it.backlog.id + File.separator}attachments${File.separator}features${File.separator + it.id + File.separator}" }
-grails.attachmentable.releaseDir = { "${File.separator + it.parentProject.id + File.separator}attachments${File.separator}releases${File.separator + it.id + File.separator}" }
-grails.attachmentable.sprintDir = { "${File.separator + it.parentRelease.parentProject.id + File.separator}attachments${File.separator}sprints${File.separator + it.id + File.separator}" }
-grails.attachmentable.projectDir = { "${File.separator + it.id + File.separator}attachments${File.separator}project${File.separator + it.id + File.separator}" }
-grails.attachmentable.taskDir = {
-    if (it.parentStory) {
-        return "${File.separator + it.parentStory?.backlog?.id + File.separator}attachments${File.separator}tasks${File.separator + it.id + File.separator}"
+grails.attachmentable.storyDir = { Story story -> ApplicationSupport.getAttachmentPath(WorkspaceType.PROJECT, story.backlog.id, 'stories', story.id) }
+grails.attachmentable.featureDir = { Feature feature ->
+    if (feature.backlog) {
+        ApplicationSupport.getAttachmentPath(WorkspaceType.PROJECT, feature.backlog.id, 'features', feature.id)
     } else {
-        return "${File.separator + it.backlog?.parentRelease?.parentProject?.id + File.separator}attachments${File.separator}tasks${File.separator + it.id + File.separator}"
+        ApplicationSupport.getAttachmentPath(WorkspaceType.PORTFOLIO, feature.portfolio.id, 'features', feature.id)
     }
 }
+grails.attachmentable.releaseDir = { Release release -> ApplicationSupport.getAttachmentPath(WorkspaceType.PROJECT, release.parentProject.id, 'releases', release.id) }
+grails.attachmentable.sprintDir = { Sprint sprint -> ApplicationSupport.getAttachmentPath(WorkspaceType.PROJECT, sprint.parentRelease.parentProject.id, 'sprints', sprint.id) }
+grails.attachmentable.projectDir = { Project project -> ApplicationSupport.getAttachmentPath(WorkspaceType.PROJECT, project.id, 'project', project.id) }
+grails.attachmentable.taskDir = { Task task -> ApplicationSupport.getAttachmentPath(WorkspaceType.PROJECT, task.parentProject.id, 'tasks', task.id) }
 
 grails.taggable.preserve.case = true
 
@@ -482,7 +500,6 @@ log4j = {
             'net.sf.ehcache.hibernate'
 
     warn 'org.mortbay.log'
-    warn 'org.atmosphere.cpr'
     warn 'grails.plugin.cache'
 
     if (config.grails.entryPoints.debug) {
@@ -507,19 +524,26 @@ log4j = {
     if (ApplicationSupport.booleanValue(config.icescrum.pushdebug.enable)) {
         debug 'org.icescrum.atmosphere'
         debug "org.grails.plugins.atmosphere_meteor"
+        debug 'org.atmosphere.cpr'
         debug 'org.atmosphere'
     } else {
         warn 'org.icescrum.atmosphere'
         warn "org.grails.plugins.atmosphere_meteor"
+        warn 'org.atmosphere.cpr'
         warn 'org.atmosphere'
     }
 
     if (ApplicationSupport.booleanValue(config.icescrum.securitydebug.enable)) {
+        debug 'org.springframework.security.saml'
         debug 'org.springframework.security'
         debug 'org.icescrum.core.security'
         debug 'com.kagilum.plugin.saml'
         debug 'com.kagilum.plugin.ldap'
         debug 'com.kagilum.plugin.preauth'
+        //saml plugin
+        debug 'org.springframework.security.saml'
+        debug 'org.opensaml'
+        debug 'logger.PROTOCOL_MESSAGE'
     }
 
     // Useless warning because are registered twice since it's based on controllerClazz.getMethods() which return the same method twice (1 with & 1 without params)
@@ -575,36 +599,38 @@ grails {
             fii.rejectPublicInvocations = true
             controllerAnnotations.staticRules = [
                     //app controllers rules
-                    '/grails-errorhandler': ['permitAll'],
-                    '/stream/app/**'      : ['permitAll'],
-                    '/scrumOS/**'         : ['permitAll'],
-                    '/user/**'            : ['permitAll'],
-                    '/errors/**'          : ['permitAll'],
-                    '/assets/**'          : ['permitAll'],
-                    '/**/js/**'           : ['permitAll'],
-                    '/**/css/**'          : ['permitAll'],
-                    '/**/images/**'       : ['permitAll'],
-                    '/**/favicon.ico'     : ['permitAll']
+                    '/grails-errorhandler'     : ['permitAll'],
+                    '/stream/app/**'           : ['permitAll'],
+                    '/scrumOS/**'              : ['permitAll'],
+                    '/user/**'                 : ['permitAll'],
+                    '/errors/**'               : ['permitAll'],
+                    '/assets/**'               : ['permitAll'],
+                    '/**/js/**'                : ['permitAll'],
+                    '/**/css/**'               : ['permitAll'],
+                    '/**/images/**'            : ['permitAll'],
+                    '/**/favicon.ico'          : ['permitAll'],
+                    '/oauth/authorize.dispatch': ["isFullyAuthenticated() and (request.getMethod().equals('GET') or request.getMethod().equals('POST'))"],
+                    '/oauth/token.dispatch'    : ["isFullyAuthenticated() and request.getMethod().equals('POST')"]
             ]
 
             userLookup.userDomainClassName = 'org.icescrum.core.domain.User'
             userLookup.authorityJoinClassName = 'org.icescrum.core.domain.security.UserAuthority'
             authority.className = 'org.icescrum.core.domain.security.Authority'
             successHandler.alwaysUseDefault = false
-
+            successHandler.targetUrlParameter = 'redirectTo'
+            logout.targetUrlParameter = 'redirectTo'
             useBasicAuth = true
             basic.realmName = "Basic authentication for iceScrum"
             filterChain.chainMap = [
-                    '/ws/**'          : 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-securityContextHolderAwareRequestFilter,-anonymousAuthenticationFilter,-basicAuthenticationFilter,-basicExceptionTranslationFilter', // Only token auth
-                    '/**/project/feed': 'JOINED_FILTERS,-exceptionTranslationFilter,-tokenAuthenticationFilter,-restExceptionTranslationFilter', // Session & basic auth
-                    '/**'             : 'JOINED_FILTERS,-tokenAuthenticationFilter,-restExceptionTranslationFilter,-basicAuthenticationFilter,-basicExceptionTranslationFilter' // Only form auth with session
+                    '/ws/**'          : 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-securityContextHolderAwareRequestFilter,-anonymousAuthenticationFilter,-basicAuthenticationFilter,-basicExceptionTranslationFilter', // Only token auth & oauth
+                    '/**/project/feed': 'JOINED_FILTERS,-exceptionTranslationFilter,-tokenAuthenticationFilter,-restExceptionTranslationFilter,-statelessSecurityContextPersistenceFilter,-oauth2ProviderFilter,-clientCredentialsTokenEndpointFilter,-oauth2BasicAuthenticationFilter,-oauth2ExceptionTranslationFilter', // Session & basic auth
+                    '/oauth/token'    : 'JOINED_FILTERS,-oauth2ProviderFilter,-securityContextPersistenceFilter,-logoutFilter,-authenticationProcessingFilter,-rememberMeAuthenticationFilter,-exceptionTranslationFilter',
+                    '/**'             : 'JOINED_FILTERS,-tokenAuthenticationFilter,-restExceptionTranslationFilter,-basicAuthenticationFilter,-basicExceptionTranslationFilter,-statelessSecurityContextPersistenceFilter,-oauth2ProviderFilter,-clientCredentialsTokenEndpointFilter,-oauth2BasicAuthenticationFilter,-oauth2ExceptionTranslationFilter'// Only form auth with session
             ]
-
-            auth.loginFormUrl = '/'
 
             rememberMe {
                 cookieName = 'iceScrum'
-                key = 'VincNicoJuShazam'
+                key = 'VincNicoJuShazam$'
             }
 
             useRunAs = true
@@ -613,10 +639,25 @@ grails {
 
             useSecurityEventListener = true
             onInteractiveAuthenticationSuccessEvent = { e, appCtx ->
-                User.withTransaction {
-                    def user = User.lock(e.authentication.principal.id)
-                    user.lastLogin = new Date()
-                    user.save(flush: true)
+                def principal = e.authentication.principal
+                if (principal instanceof GrailsUser) {
+                    User.withTransaction {
+                        def user = User.lock(principal.id)
+                        user.lastLogin = new Date()
+                        user.save(flush: true)
+                    }
+                }
+            }
+
+            oauthProvider {
+                exceptionTranslationFilterStartPosition = SecurityFilterPosition.EXCEPTION_TRANSLATION_FILTER.order + 2
+                oauthProvider.clientLookup.className = 'org.icescrum.core.domain.security.Client'
+                authorizationCodeLookup.className = 'org.icescrum.core.domain.security.AuthorizationCode'
+                accessTokenLookup.className = 'org.icescrum.core.domain.security.AccessToken'
+                refreshTokenLookup.className = 'org.icescrum.core.domain.security.RefreshToken'
+                tokenServices {
+                    accessTokenValiditySeconds = 60 * 60 * 12 // default 12 hours
+                    refreshTokenValiditySeconds = 60 * 60 * 24 * 30 // default 30 days
                 }
             }
         }
@@ -626,9 +667,8 @@ grails {
 /* User config */
 environments {
     production {
-        def oldConfigEnvName = 'icescrum_config_location'
-        def systemConfig = System.getProperty(ApplicationSupport.CONFIG_ENV_NAME) ?: System.getProperty(oldConfigEnvName)
-        def envConfig = System.getenv(ApplicationSupport.CONFIG_ENV_NAME) ?: System.getenv(oldConfigEnvName)
+        def systemConfig = System.getProperty(ApplicationSupport.CONFIG_ENV_NAME)
+        def envConfig = System.getenv(ApplicationSupport.CONFIG_ENV_NAME)
         def homeConfig = "${userHome}${File.separator}.icescrum${File.separator}config.groovy"
         println "--------------------------------------------------------"
         if (systemConfig && new File(systemConfig).exists()) {  // 1. System variable passed to the JVM : -Dicescrum.config.file=.../config.groovy
@@ -645,7 +685,7 @@ environments {
             grails.config.locations = []
         }
         try {
-            String extConfFile = (String) new InitialContext().lookup('java:comp/env/' + ApplicationSupport.CONFIG_ENV_NAME) ?: (String) new InitialContext().lookup('java:comp/env/' + oldConfigEnvName)
+            String extConfFile = (String) new InitialContext().lookup('java:comp/env/' + ApplicationSupport.CONFIG_ENV_NAME)
             if (extConfFile) {
                 grails.config.locations << extConfFile
                 println "Use configuration file provided by JNDI: ${extConfFile}"
@@ -653,6 +693,9 @@ environments {
         } catch (Exception e) {}
         println "(*) grails.config.locations = ${grails.config.locations}"
         println "--------------------------------------------------------"
+    }
+    development {
+        icescrum.beta.enable = true
     }
 }
 

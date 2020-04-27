@@ -22,7 +22,6 @@
  * Colin Bontemps (cbontemps@kagilum.com)
  *
  */
-
 var isApplication = angular.module('isApplication', [
         'isCore',
         'ngRoute',
@@ -43,7 +42,7 @@ var isApplication = angular.module('isApplication', [
         'ngPDFViewer',
         'remoteValidation',
         'FBAngular',
-        'angular-extended-notifications',
+        'angular-notifications',
         'as.sortable',
         'angular.atmosphere',
         'nvd3',
@@ -102,7 +101,7 @@ var isApplication = angular.module('isApplication', [
                             $state.transitionTo('root');
                         });
                     } else {
-                        $rootScope.showRegisterModal();
+                        $state.transitionTo('root');
                     }
                 }]
             })
@@ -243,7 +242,7 @@ var isApplication = angular.module('isApplication', [
                             }
                         }
                     },
-                    isStateProvider.getFeatureDetailsState()
+                    isStateProvider.getFeatureDetailsState('@feature')
                 ]
             })
             .state({
@@ -415,7 +414,7 @@ var isApplication = angular.module('isApplication', [
                     }]
                 },
                 children: [
-                    isStateProvider.getSprintDetailsState(),
+                    isStateProvider.getSprintDetailsState('@taskBoard'),
                     {
                         name: 'task',
                         url: "/task",
@@ -482,13 +481,6 @@ var isApplication = angular.module('isApplication', [
             simultaneousUploads: 1 // Only one at the time => prevent staleObjectException
         };
     }])
-    .config(['notificationsProvider', function(notificationsProvider) {
-        notificationsProvider.setDefaults({
-            faIcons: true,
-            closeOnRouteChange: 'state',
-            duration: 4500
-        });
-    }])
     .config(['$uibTooltipProvider', function($uibTooltipProvider) {
         $uibTooltipProvider.options({appendToBody: true});
     }])
@@ -511,6 +503,20 @@ var isApplication = angular.module('isApplication', [
     }])
     .config(['$animateProvider', function($animateProvider) {
         $animateProvider.classNameFilter(/ng-animate-enabled/);
+    }])
+    .config(['$authProvider', function($authProvider) {
+        var providers = isSettings.clientsOauth;
+        _.each(providers, function(opts, key) {
+            var options = {
+                name: key,
+                url: isSettings.serverUrl + "/clientOauth/token/" + key,
+                redirectUri: isSettings.serverUrl + "/clientOauth/redirectUri",
+            }
+            _.each(opts, function(value, key) {
+                options[key] = value;
+            });
+            $authProvider.oauth2(options);
+        });
     }])
     .factory('ErrorInterceptor', ['$rootScope', '$q', 'SERVER_ERRORS', function($rootScope, $q, SERVER_ERRORS) {
         return {
@@ -556,12 +562,21 @@ var isApplication = angular.module('isApplication', [
     .factory('UserTimeZone', function() {
         return jstz.determine();
     })
-    .run(['Session', 'I18nService', 'PushService', 'UserService', 'WidgetService', 'AppService', 'FormService', '$controller', '$rootScope', '$timeout', '$state', '$uibModal', '$filter', '$document', '$window', '$localStorage', '$interval', 'notifications', 'screenSize', function(Session, I18nService, PushService, UserService, WidgetService, AppService, FormService, $controller, $rootScope, $timeout, $state, $uibModal, $filter, $document, $window, $localStorage, $interval, notifications, screenSize) {
+    .run(['Session', 'I18nService', 'PushService', 'UserService', 'WidgetService', 'AppService', 'FormService', 'WorkspaceType', '$controller', '$rootScope', '$timeout', '$state', '$uibModal', '$filter', '$document', '$window', '$localStorage', '$interval', 'notifications', 'screenSize', 'hotkeys', function(Session, I18nService, PushService, UserService, WidgetService, AppService, FormService, WorkspaceType, $controller, $rootScope, $timeout, $state, $uibModal, $filter, $document, $window, $localStorage, $interval, notifications, screenSize, hotkeys) {
         $rootScope.uiWorking = function(message) {
+            $rootScope.loaders.menu.play();
+            $rootScope.loaders.menu.loop = true;
             $rootScope.application.loading = true;
             $rootScope.application.loadingText = $rootScope.message((message === true || message === undefined) ? 'todo.is.ui.loading.working' : message);
+            if ($rootScope.application.loadingText) {
+                $rootScope.loaders.main.play();
+                $rootScope.loaders.main.loop = true;
+            }
         };
+        $rootScope.uiReadyTimeout = null;
         $rootScope.uiReady = function() {
+            $rootScope.loaders.menu.loop = false;
+            $rootScope.loaders.main.loop = false;
             $rootScope.application.loading = false;
             $rootScope.application.loadingText = null;
         };
@@ -627,6 +642,7 @@ var isApplication = angular.module('isApplication', [
                 templateUrl: 'confirm.modal.html',
                 size: 'sm',
                 controller: ["$scope", "hotkeys", function($scope, hotkeys) {
+                    $scope.confirmTitle = $scope.message(options.confirmTitle ? options.confirmTitle : 'todo.is.ui.confirm.title');
                     $scope.buttonColor = options.buttonColor ? options.buttonColor : 'primary';
                     $scope.buttonTitle = $scope.message(options.buttonTitle ? options.buttonTitle : 'todo.is.ui.confirm');
                     $scope.message = options.message;
@@ -681,13 +697,6 @@ var isApplication = angular.module('isApplication', [
                 }]
             });
         };
-        $rootScope.confirmDelete = function(options) {
-            $rootScope.confirm(_.assign({ // Don't use merge, we want to keep the original references and avoid object copy
-                buttonColor: 'danger',
-                buttonTitle: 'default.button.delete.label',
-                message: $rootScope.message('is.confirm.delete')
-            }, options));
-        };
         $rootScope.dirtyChangesConfirm = function(options) {
             var modal = $uibModal.open({
                 templateUrl: 'confirm.dirty.modal.html',
@@ -695,6 +704,9 @@ var isApplication = angular.module('isApplication', [
                 keyboard: false,
                 backdrop: 'static',
                 controller: ["$scope", "hotkeys", function($scope, hotkeys) {
+                    $scope.confirmTitle = $scope.message(options.confirmTitle ? options.confirmTitle : 'todo.is.ui.dirty.confirm.title');
+                    $scope.confirmSaveButton = $scope.message(options.confirmSaveButton ? options.confirmSaveButton : 'todo.is.ui.dirty.confirm.save');
+                    $scope.confirmDontSaveButton = $scope.message(options.confirmDontSaveButton ? options.confirmDontSaveButton : 'todo.is.ui.dirty.confirm.dontsave');
                     $scope.message = options.message;
                     $scope.saveChanges = function() {
                         if (options.args) {
@@ -780,51 +792,16 @@ var isApplication = angular.module('isApplication', [
                 }]
             });
         };
-        $rootScope.showAuthModal = function(username) {
-            if (!$rootScope.application.visibleAuthModal) {
-                var childScope = $rootScope.$new();
-                if (username) {
-                    childScope.username = username;
-                }
-                $rootScope.application.visibleAuthModal = true;
-                var callback = function() {
-                    $rootScope.application.visibleAuthModal = false;
-                };
-                $uibModal.open({
-                    keyboard: false,
-                    templateUrl: $rootScope.serverUrl + '/login/auth',
-                    controller: 'loginCtrl',
-                    scope: childScope,
-                    size: 'sm'
-                }).result.then(callback, callback);
-            }
+        $rootScope.logIn = function(redirectTo) {
+            login(redirectTo);
+        };
+        $rootScope.logOut = function(redirectTo) {
+            logout(redirectTo);
         };
         $rootScope.showNotEnabledFeature = function() {
             $rootScope.alert({
                 message: $rootScope.message('is.ui.admin.contact.enable')
             });
-        };
-        $rootScope.showRegisterModal = function(user) {
-            if (isSettings.registrationEnabled) {
-                var childScope = $rootScope.$new();
-                if (user) {
-                    childScope.user = user;
-                }
-                $uibModal.open({
-                    keyboard: false,
-                    backdrop: 'static',
-                    templateUrl: $rootScope.serverUrl + '/user/register',
-                    controller: 'registerCtrl',
-                    scope: childScope
-                }).result.then(function(username) {
-                    $state.transitionTo('root');
-                    $rootScope.showAuthModal(username);
-                }, function() {
-                    $state.transitionTo('root');
-                });
-            } else {
-                $rootScope.showNotEnabledFeature();
-            }
         };
         $rootScope.showAppsModal = function(appDefinitionId, isTerm) {
             var scope = $rootScope.$new();
@@ -834,6 +811,7 @@ var isApplication = angular.module('isApplication', [
                 } else {
                     scope.defaultAppDefinitionId = appDefinitionId;
                 }
+                scope.closeModalOnEnableApp = true;
             }
             $uibModal.open({
                 keyboard: false,
@@ -850,15 +828,8 @@ var isApplication = angular.module('isApplication', [
                 $rootScope.notifySuccess('is.ui.copy.to.clipboard.error');
             });
         };
-        $rootScope.openWorkspaceUrl = function(object) {
-            if (object.pkey) {
-                return $rootScope.serverUrl + '/p/' + object.pkey + '/';
-            } else {
-                return $rootScope.serverUrl + '/f/' + object.fkey + '/';
-            }
-        };
         $rootScope.openWorkspace = function(object) {
-            document.location = $rootScope.openWorkspaceUrl(object);
+            document.location = object.pkey ? $filter('projectUrl')(object.pkey) : $filter('portfolioUrl')(object.fkey);
         };
         $rootScope.openDatepicker = function($event, holder) {
             $event.preventDefault();
@@ -867,6 +838,27 @@ var isApplication = angular.module('isApplication', [
                 holder.opened = true;
             }
         };
+        $rootScope.menuClick = function(menuElement, item, $event) {
+            var actionConfirmed = true;
+            if (menuElement.deleteMenu) {
+                actionConfirmed = false;
+                $event.preventDefault();
+                $event.stopPropagation();
+                var el = angular.element($event.target);
+                el = el.hasClass("name") ? el : el.find('.name');
+                if (!el.hasClass("confirm-delete-action")) {
+                    el.addClass("confirm-delete-action");
+                    el.html($rootScope.message('is.ui.delete.confirm'));
+                } else {
+                    actionConfirmed = true;
+                }
+            }
+            if (menuElement.action && actionConfirmed) {
+                $event.preventDefault();
+                menuElement.action(item);
+            }
+        };
+        $rootScope.workspaceTypes = WorkspaceType;
         $rootScope.integerSuite = _.range(100);
         $rootScope.integerSuiteNullable = ['?'].concat($rootScope.integerSuite);
         $rootScope.fibonacciSuite = [0, 1, 2, 3, 5, 8, 13, 21, 34];
@@ -877,16 +869,12 @@ var isApplication = angular.module('isApplication', [
             loadingPercent: 0,
             submitting: false,
             isFullScreen: false,
-            detachedDetailsView: $localStorage['detachedDetailsView'] ? $localStorage['detachedDetailsView'] : false,
-            minimizedDetailsView: $localStorage['minimizedDetailsView'] ? $localStorage['minimizedDetailsView'] : false,
-            menus: Session.menus,
-            mobile: screenSize.is('xs, sm'),
-            mobilexs: screenSize.is('xs')
+            mediaBreakpoint: screenSize.get()
         };
         $rootScope.$state = $state; // To be able to track state in views
         $rootScope.sortableScrollOptions = function(scrollableContainerSelector) {
             return {
-                scrollableContainerSelector: scrollableContainerSelector ? scrollableContainerSelector : '.panel-body',
+                scrollableContainerSelector: scrollableContainerSelector ? scrollableContainerSelector : '.card-body',
                 dragStart: function() {
                     $rootScope.application.sortableMoving = true;
                     if ($state.params.storyListId || $state.params.featureListId) {
@@ -914,7 +902,12 @@ var isApplication = angular.module('isApplication', [
             $rootScope.warning = isSettings.warning;
             $rootScope.displayWhatsNew = isSettings.displayWhatsNew;
             $rootScope.workspaceType = Session.workspaceType;
-            if ($rootScope.workspaceType == 'project') {
+            $rootScope.loginLink = isSettings.loginLink;
+            $rootScope.logoutLink = isSettings.logoutLink;
+            if (isSettings.announcement && isSettings.announcement.code && !$localStorage['hideAnnouncement-' + isSettings.announcement.code]) {
+                $rootScope.application.announcement = isSettings.announcement;
+            }
+            if ($rootScope.workspaceType === WorkspaceType.PROJECT) {
                 $controller('contextCtrl', {$scope: $rootScope});
             }
             PushService.initPush(isSettings.workspace ? isSettings.workspace.id : null, $rootScope.workspaceType);
@@ -924,10 +917,23 @@ var isApplication = angular.module('isApplication', [
                 isSettings.user.preferences = isSettings.userPreferences;
             }
             PDFJS.workerSrc = isSettings.workerSrc;
-            Session.create(isSettings.user, isSettings.roles, isSettings.menus, isSettings.defaultView);
+            $rootScope.application.menus = {
+                visible: isSettings.menus,
+                hidden: []
+            };
+            Session.create(isSettings.user, isSettings.roles, isSettings.defaultView);
+            $rootScope.loaders = {
+                menu: menuLoaderAnimation,
+                main: mainLoaderAnimation
+            };
+            moment.locale(isSettings.lang);
         }
         $rootScope.authenticated = Session.authenticated;
         $rootScope.authorizedApp = AppService.authorizedApp;
+        $rootScope.hideAnnouncement = function() {
+            $localStorage['hideAnnouncement-' + $rootScope.application.announcement.code] = true;
+            $rootScope.application.announcement = null;
+        };
         $rootScope.getProjectFromState = function() {
             return $state.$current.locals.globals.project;
         };
@@ -1010,7 +1016,7 @@ var isApplication = angular.module('isApplication', [
                     if (!authorized) {
                         event.preventDefault();
                         if (!Session.authenticated()) {
-                            $rootScope.showAuthModal();
+                            $rootScope.logIn();
                         } else {
                             $state.go(angular.isDefined(fromState) && fromState.name ? fromState.name : "404");
                         }
@@ -1018,14 +1024,34 @@ var isApplication = angular.module('isApplication', [
                 }
             }
             $rootScope.application.focusedDetailsView = toState.name.indexOf('.focus') > 0;
-            if (_.endsWith(fromState.name, 'details') && !_.endsWith(toState.name, 'details')) {
-                $rootScope.application.minimizedDetailsView = false;
+        });
+        $rootScope.getColorScheme = getColorScheme;
+        $rootScope.setColorScheme = setColorScheme;
+        $rootScope.toggleColorScheme = function() {
+            var newColorScheme = $rootScope.getColorScheme() === 'dark' ? 'light' : 'dark';
+            $rootScope.setColorScheme(newColorScheme);
+            if (Session.authenticated()) {
+                UserService.updateColorScheme(newColorScheme);
             }
+        };
+        screenSize.onRuleChange($rootScope, function(breakPoint) {
+            $rootScope.application.mediaBreakpoint = breakPoint;
         });
-        screenSize.onChange($rootScope, 'xs, sm', function(isMatch) {
-            $rootScope.application.mobile = isMatch;
+        hotkeys.add({
+            combo: 'shift+d',
+            callback: $rootScope.toggleColorScheme,
+            description: $rootScope.message('is.ui.colorScheme.toggle')
         });
-        screenSize.onChange($rootScope, 'xs', function(isMatch) {
-            $rootScope.application.mobilexs = isMatch;
-        });
+        $rootScope.getMeetingProviders = function() {
+            return isSettings.meeting.providers;
+        };
+        $rootScope.getMeetingProvider = function(providerId) {
+            return _.find($rootScope.getMeetingProviders(), ['id', providerId]);
+        };
+        $rootScope.getAttachmentProviders = function() {
+            return isSettings.attachment.providers;
+        };
+        $rootScope.getAttachmentProvider = function(providerId) {
+            return _.find($rootScope.getAttachmentProviders(), ['id', providerId]);
+        };
     }]);

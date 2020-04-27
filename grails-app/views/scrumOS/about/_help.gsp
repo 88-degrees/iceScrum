@@ -1,23 +1,33 @@
 <%@ page import="grails.util.Environment" %>
 <div>
     <g:set var="analytics" value="?utm_source=about&utm_medium=link&utm_campaign=icescrum"/>
-    <p>
-        <strong>${message(code: 'is.dialog.about.version.link')}</strong> : <a href="${version.link.toString() + analytics}" target="_blank">${version.link}</a>
-    </p>
-    <p>
-        <strong>${message(code: 'is.dialog.about.version.pro')}</strong> : <a href="${version.pro.toString() + analytics}" target="_blank">${version.pro}</a>
-    </p>
-    <p>
-        <strong>${message(code: 'is.ui.documentation')}</strong> : <a href="${version.documentation.toString() + analytics}" target="_blank">${version.documentation}</a>
-    </p>
-    <p>
-        <strong>${message(code: 'is.ui.documentation.getting.started')}</strong> : <a href="${version.gettingStarted.toString() + analytics}" target="_blank">${version.gettingStarted}</a>
-    </p>
-    <p>
-        <strong>${message(code: 'is.dialog.about.version.forum.link')}</strong> : <a href="${version.forum.toString() + analytics}" target="_blank">${version.forum}</a>
-    </p>
-    <br/>
-    <h4>${message(code: 'is.dialog.about.version.build.title')}</h4>
+    <div class="table-responsive">
+        <table class="table">
+            <tbody>
+                <tr>
+                    <td>${message(code: 'is.dialog.about.version.link')}</td>
+                    <td><a href="${version.link.toString() + analytics}" target="_blank">${version.link}</a></td>
+                </tr>
+                <tr>
+                    <td>${message(code: 'is.dialog.about.version.pro')}</td>
+                    <td><a href="${version.pro.toString() + analytics}" target="_blank">${version.pro}</a></td>
+                </tr>
+                <tr>
+                    <td>${message(code: 'is.ui.documentation')}</td>
+                    <td><a href="${version.documentation.toString() + analytics}" target="_blank">${version.documentation}</a></td>
+                </tr>
+                <tr>
+                    <td>${message(code: 'is.ui.documentation.getting.started')}</td>
+                    <td><a href="${version.gettingStarted.toString() + analytics}" target="_blank">${version.gettingStarted}</a></td>
+                </tr>
+                <tr>
+                    <td>${message(code: 'is.dialog.about.version.forum.link')}</td>
+                    <td><a href="${version.forum.toString() + analytics}" target="_blank">${version.forum}</a></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <h4 class="mb-2">${message(code: 'is.dialog.about.version.build.title')}</h4>
     <div class="table-responsive">
         <table class="table table-bordered table-striped">
             <tbody>
@@ -76,6 +86,17 @@
                             <td>#<g:meta name="environment.BUILD_NUMBER"/></td>
                         </tr>
                     </g:if>
+                    <g:if test="${grailsApplication.config.icescrum.beta.enable && grailsApplication.config.icescrum.beta.features}">
+                        <tr>
+                            <td>${message(code: 'is.ui.server.beta.features')}</td>
+                            <td>
+                                <g:each in="${grailsApplication.config.icescrum.beta.features}" var="feature">
+                                    ${feature}: <g:if test="${grailsApplication.config.icescrum.beta[feature].enable}">${message(code: 'is.ui.server.beta.features.enabled')}</g:if>
+                                    <g:else>${message(code: 'is.ui.server.beta.features.disabled')}</g:else><g:if test="${feature != grailsApplication.config.icescrum.beta.features.last()}">,</g:if>
+                                </g:each>
+                            </td>
+                        </tr>
+                    </g:if>
                     <tr>
                         <td>OS</td>
                         <td>${System.getProperty('os.name')} ${System.getProperty('os.version')} ${System.getProperty('os.arch')}</td>
@@ -98,20 +119,27 @@
                     </tr>
                     <tr ng-if="atmosphere.liveConnections">
                         <td>${message(code: 'is.ui.server.connections.live')}</td>
-                        <td>{{ atmosphere.liveConnections }} <small class="muted pull-right">${message(code: 'is.ui.server.connections.refreshed')}</small></td>
+                        <td>{{ atmosphere.liveConnections }} <small class="muted float-right">${message(code: 'is.ui.server.connections.refreshed')}</small></td>
                     </tr>
                     <tr ng-if="atmosphere.maxConnections">
                         <td>${message(code: 'is.ui.server.connections.max')}</td>
-                        <td>{{ atmosphere.maxConnections }} <small class="muted pull-right">{{ atmosphere.maxConnectionsDate | dateTime}}</small></td>
+                        <td>{{ atmosphere.maxConnections }} <small class="muted float-right">{{ atmosphere.maxConnectionsDate | dateTime}}</small></td>
                     </tr>
-                    <!--<tr ng-if="atmosphere">
+                    <tr ng-if="atmosphere.liveUsers">
                         <td>${message(code: 'is.ui.server.connections.users.live')}</td>
-                        <td>{{ atmosphere.liveUsers }} <small class="muted pull-right">({{ atmosphere.liveUsers.length }}) ${message(code: 'is.ui.server.connections.refreshed')}</small></td>
+                        <td>{{ atmosphere.liveUsers }} <small class="muted float-right">${message(code: 'is.ui.server.connections.refreshed')}</small></td>
                     </tr>
-                    <tr ng-if="atmosphere">
+                    <tr ng-if="atmosphere.maxUsers">
                         <td>${message(code: 'is.ui.server.connections.users.max')}</td>
-                        <td>{{ atmosphere.maxUsers }} <small class="muted pull-right">({{ atmosphere.maxUsers.length }}) {{ atmosphere.maxUsersDate }}</small></td>
-                    </tr>-->
+                        <td>{{ atmosphere.maxUsers }} <small class="muted float-right">{{ atmosphere.maxUsersDate }}</small></td>
+                    </tr>
+                    <tr ng-if="atmosphere.transports">
+                        <td>${message(code: 'is.ui.server.connections.transports')}</td>
+                        <td><span ng-repeat="(key, value) in atmosphere.transports">
+                            {{ key }}: {{ value }},
+                        </span>
+                        </td>
+                    </tr>
                     <g:if test="${System.getenv('JAVA_OPTS')}">
                         <tr>
                             <td>JAVA_OPTS</td>

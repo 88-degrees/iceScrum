@@ -26,8 +26,12 @@
     <div class="form-half">
         <label for="project.startDate">${message(code: 'is.dialog.wizard.project.startDate')}</label>
         <div class="input-group">
-            <span class="input-group-btn">
-                <button type="button" class="btn btn-default" ng-click="openDatepicker($event, startDateOptions)"><i class="fa fa-calendar"></i></button>
+            <span class="input-group-prepend">
+                <button type="button"
+                        class="btn btn-secondary btn-sm"
+                        ng-click="openDatepicker($event, startDateOptions)">
+                    <i class="fa fa-calendar"></i>
+                </button>
             </span>
             <input type="text"
                    class="form-control"
@@ -68,15 +72,16 @@
                    ng-required="isCurrentStep(4, 'project')"
                    ng-change="computePlanning()"
                    ng-model="project.preferences.estimatedSprintsDuration">
-            <div class="input-group-addon">${message(code: 'is.dialog.wizard.project.days')}</div>
+            <div class="input-group-append">
+                <div class="input-group-text">${message(code: 'is.dialog.wizard.project.days')}</div>
+            </div>
         </div>
     </div>
 </div>
 <div class="row">
     <div class="form-half">
         <label ng-if="type == 'newProject'"
-               for="initializeProject"
-               class="checkbox-inline">
+               for="initializeProject">
             <input type="checkbox"
                    name="project.initialize"
                    id="initializeProject"
@@ -84,8 +89,7 @@
             ${message(code: 'todo.is.ui.project.planning.initialize')}
         </label>
         <label ng-if="type != 'newProject'"
-               for="hideWeekend"
-               class="checkbox-inline">
+               for="hideWeekend">
             <input type="checkbox"
                    name="project.preferences.hideWeekend"
                    id="hideWeekend"
@@ -98,8 +102,12 @@
     <div class="form-half">
         <label for="project.firstSprint">${message(code: 'is.dialog.wizard.firstSprint')}</label>
         <div class="input-group">
-            <span class="input-group-btn">
-                <button type="button" class="btn btn-default" ng-click="openDatepicker($event, firstSprintOptions)"><i class="fa fa-calendar"></i></button>
+            <span class="input-group-prepend">
+                <button type="button"
+                        class="btn btn-secondary btn-sm"
+                        ng-click="openDatepicker($event, firstSprintOptions)">
+                    <i class="fa fa-calendar"></i>
+                </button>
             </span>
             <input type="text"
                    class="form-control"
@@ -126,21 +134,25 @@
                    datepicker-options="endDateOptions"
                    ng-class="{current:step.selected}"
                    ng-required="isCurrentStep(4, 'project')"/>
-            <span class="input-group-btn">
-                <button type="button" class="btn btn-default" ng-click="openDatepicker($event, endDateOptions)"><i class="fa fa-calendar"></i></button>
+            <span class="input-group-append">
+                <button type="button"
+                        class="btn btn-secondary btn-sm"
+                        ng-click="openDatepicker($event, endDateOptions)">
+                    <i class="fa fa-calendar"></i>
+                </button>
             </span>
         </div>
     </div>
     <div class="col-sm-12 form-group">
-        <uib-progress class="form-control-static form-bar" max="totalDuration">
-            <uib-bar ng-repeat="sprint in sprints"
-                     class="{{ $last ? 'last-bar' : '' }}"
-                     uib-tooltip-template="'sprint.tooltip.html'"
-                     type="todo"
-                     value="project.preferences.estimatedSprintsDuration">
-                {{ sprint.index }}
-            </uib-bar>
-        </uib-progress>
+        <div class="timeline-bar-container">
+            <div class="progress timeline-bar">
+                <div ng-repeat="sprint in sprints"
+                     class="progress-bar bg-todo {{ $last ? 'last-bar' : '' }}"
+                     ng-style="{width: (project.preferences.estimatedSprintsDuration / totalDuration * 100) + '%'}">
+                    {{ sprint.index }}
+                </div>
+            </div>
+        </div>
     </div>
     <div class="col-sm-12 form-group">
         <label for="vision">${message(code: 'is.release.vision')}</label>
@@ -153,7 +165,7 @@
                   ng-show="showVisionTextarea"
                   ng-blur="delayCall(toggleVision, [false])"
                   is-model-html="project.vision_html"></textarea>
-        <div class="markitup-preview"
+        <div class="markitup-preview form-control"
              tabindex="0"
              ng-show="!showVisionTextarea"
              ng-click="toggleVision(true)"

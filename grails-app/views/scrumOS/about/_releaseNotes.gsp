@@ -1,3 +1,4 @@
+<%@ page import="org.icescrum.core.support.ApplicationSupport" %>
 %{--
 - Copyright (c) 2017 Kagilum SAS.
 -
@@ -21,4 +22,13 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <g:render template="/scrumOS/about/whatsNew"/>
-${releaseNotes}
+<div class="pl-4 pr-4 mb-3">
+    ${releaseNotes}
+</div>
+<div class="text-center mt-3">
+    <a class="link"
+       target="_blank"
+       href="${ApplicationSupport.getReleaseNotesLink()}">
+        ${message(code: 'is.ui.read.more')}
+    </a>
+</div>

@@ -74,6 +74,18 @@ class TaskController implements ControllerErrorHandler {
         render(status: 200, contentType: 'application/json', text: task as JSON)
     }
 
+    @Secured('inProject() or (isAuthenticated() and stakeHolder())')
+    def uid(int uid, long project) {
+        Project _project = Project.withProject(project)
+        Task task = Task.findByParentProjectAndUid(_project, uid)
+        if (task) {
+            params.id = task.id.toString()
+            forward(action: "show")
+        } else {
+            render(status: 404)
+        }
+    }
+
     @Secured('inProject() and !archivedProject()')
     def save() {
         def taskParams = params.task
@@ -214,6 +226,33 @@ class TaskController implements ControllerErrorHandler {
         render(status: 200, contentType: 'application/json', text: copiedTask as JSON)
     }
 
+    @Secured('inProject() and !archivedProject()')
+    def daily(long project, int days) {
+        days = days ?: 1
+
+        def allTasks = Task.where {
+            responsible.id == springSecurityService.currentUser.id &&
+            parentProject.id == project &&
+            backlog != null
+        }.list().findAll {
+            ((Sprint) it.backlog).state in [Sprint.STATE_INPROGRESS] // Doesn't work in the criteria because of the cast so it must be done after
+        }
+
+        def tasksByState = allTasks.groupBy { it.state }
+        def tasksInProgress = tasksByState[Task.STATE_BUSY].findAll { !it.blocked }.sort { it.lastUpdated }
+        def tasksDone = tasksByState[Task.STATE_DONE].findAll { it.doneDate > (new Date() - days) }
+        def tasksBlocked = allTasks.findAll { it.blocked }.sort { it.lastUpdated }
+        def tasksTodo = tasksByState[Task.STATE_WAIT].findAll { it.parentStory?.rank }
+        def dailyByProject = [
+                tasksInProgress: tasksInProgress,
+                tasksBlocked   : tasksBlocked,
+                tasksDone      : tasksDone,
+                tasksTodo      : tasksTodo
+        ]
+
+        render(status: 200, contentType: 'application/json', text: dailyByProject as JSON)
+    }
+
     @Secured('isAuthenticated()')
     def listByUser(Long projectId) {
         def userTasks = Task.where {
@@ -227,7 +266,7 @@ class TaskController implements ControllerErrorHandler {
         }.sort { -it.state }.take(8).groupBy {
             it.parentProject
         }.collect { project, tasks ->
-            [project: project, tasks: tasks]
+            [project: [class: 'Project', id: project.id, pkey: project.pkey, name: project.name, preferences: [archived: project.preferences.archived]], tasks: tasks]
         }
         render(status: 200, contentType: 'application/json', text: tasksByProject as JSON)
     }
@@ -254,7 +293,7 @@ class TaskController implements ControllerErrorHandler {
                 }
                 uri += "/tasks/task/$task.id"
             }
-            redirect(uri: uri)
+            redirect(uri: uri + (params.tab ? '/' + params.tab : ''))
         } else {
             redirect(controller: 'errors', action: 'error404')
         }
@@ -294,7 +333,7 @@ class TaskController implements ControllerErrorHandler {
                         notes      : ServicesUtils.textileToHtml(_task.notes),
                         sprint     : g.message(code: 'is.sprint') + " " + ((Sprint) _task.backlog).index,
                         taskColor  : _task.color,
-                        permalink  : createLink(absolute: true, uri: '/' + _project.pkey + '-T' + _task.uid),
+                        permalink  : _task.permalink,
                         story      : _task.parentStory ? _task.parentStory.name : null,
                         estimation : _task.estimation,
                         type       : _task.parentStory ? null : message(code: grailsApplication.config.icescrum.resourceBundles.taskTypes[_task.type])

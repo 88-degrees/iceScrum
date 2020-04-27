@@ -30,10 +30,10 @@
       ng-submit='update(portfolio)'
       name="formHolder.editPortfolioForm">
     <ng-include src="'form.members.portfolio.html'"></ng-include>
-    <div class="btn-toolbar pull-right">
+    <div class="btn-toolbar float-right">
         <button type="button"
                 role="button"
-                class="btn btn-default"
+                class="btn btn-secondary"
                 ng-click="cancelMembers()">
             ${message(code: 'is.button.cancel')}
         </button>

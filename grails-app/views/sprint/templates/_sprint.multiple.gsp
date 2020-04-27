@@ -21,42 +21,37 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="sprint.multiple.html">
-<div class="panel panel-light">
-    <div class="panel-heading">
-        <h3 class="panel-title row">
-            <div class="left-title">
-                ${message(code: 'todo.is.ui.sprints')} ({{ sprints.length }})
+<div class="card">
+    <div class="details-header">
+        <a class="btn btn-icon" href="{{:: $state.href('^') }}">
+            <span class="icon icon-close"></span>
+        </a>
+    </div>
+    <div class="card-header">
+        <div class="card-title">
+            ${message(code: 'todo.is.ui.sprints')} ({{ sprints.length }})
+        </div>
+        <div class="btn-toolbar" ng-if="authorizedSprints('autoPlan', sprints) || authorizedSprints('unPlan', sprints)">
+            <div ng-if="authorizedSprints('autoPlan', sprints)"
+                 class="btn-group">
+                <button type="button"
+                        class="btn btn-secondary btn-sm"
+                        ng-click="showAutoPlanModal({callback: autoPlanMultiple, args: [sprints]})">
+                    ${message(code: 'is.ui.releasePlan.toolbar.autoPlan')}
+                </button>
             </div>
-            <div class="right-title">
-                <a class="btn btn-default"
-                   href="{{:: $state.href('^') }}"
-                   defer-tooltip="${message(code: 'is.ui.window.closeable')}">
-                    <i class="fa fa-times"></i>
-                </a>
+            <div ng-if="authorizedSprints('unPlan', sprints)"
+                 class="btn-group">
+                <button type="button"
+                        class="btn btn-secondary btn-sm"
+                        ng-click="unPlanMultiple(sprints)">
+                    ${message(code: 'is.ui.releasePlan.menu.sprint.dissociateAll')}
+                </button>
             </div>
-        </h3>
+        </div>
     </div>
     <div class="details-no-tab">
-        <div class="panel-body">
-            <div class="btn-toolbar" ng-if="authorizedSprints('autoPlan', sprints) || authorizedSprints('unPlan', sprints)">
-                <div ng-if="authorizedSprints('autoPlan', sprints)"
-                     class="btn-group">
-                    <button type="button"
-                            class="btn btn-default"
-                            ng-click="showAutoPlanModal({callback: autoPlanMultiple, args: [sprints]})">
-                        <g:message code='is.ui.releasePlan.toolbar.autoPlan'/>
-                    </button>
-                </div>
-                <div ng-if="authorizedSprints('unPlan', sprints)"
-                     class="btn-group">
-                    <button type="button"
-                            class="btn btn-default"
-                            ng-click="unPlanMultiple(sprints)">
-                        <g:message code='is.ui.releasePlan.menu.sprint.dissociateAll'/>
-                    </button>
-                </div>
-            </div>
-            <br/>
+        <div class="card-body">
             <div class="table-responsive">
                 <table class="table">
                     <tr><td>${message(code: 'is.release')}</td><td>{{ release.name }}</td></tr>

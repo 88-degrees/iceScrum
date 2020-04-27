@@ -20,265 +20,339 @@
 - Vincent Barrier (vbarrier@kagilum.com)
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
-<is:window windowDefinition="${windowDefinition}" classes="widget-dashboard">
-    <div class="row">
-        <div class="widget-column">
-            <div class="panel-container">
-                <div class="panel panel-light">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">
-                            <i tooltip-placement="right"
-                               defer-tooltip="${message(code: 'is.ui.project.public')}"
-                               ng-if="!project.preferences.hidden"
-                               ng-click="authorizedProject('edit') && showProjectEditModal()"
-                               class="fa fa-eye"></i>&nbsp;<i class="fa fa-folder"></i>&nbsp;{{ project.name + ' (' + project.pkey + ')' }}&nbsp;<entry:point id="window-project-name-right"/>
-                            <button class="btn btn-default btn-sm pull-right visible-on-hover"
-                                    ng-if="authorizedProject('update', project)"
-                                    ng-click="showProjectEditModal()"
-                                    type="button">
-                                <i class="fa fa-pencil"></i>
-                            </button>
-                        </h3>
+<is:window windowDefinition="${windowDefinition}" classes="widget-view">
+    <div class="d-flex flex-wrap panels">
+        <div class="panel-column col-md-6">
+            <div class="card hover-container project-summary">
+                <div class="card-header d-md-flex justify-content-md-between align-items-end">
+                    <div class="card-title workspace-title text-truncate">
+                        <span class="sharpie-highlight">{{ project.name }}</span>
+                        <entry:point id="window-project-name-right"/>
                     </div>
-                    <div class="panel-body">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <div class="rich-content" ng-bind-html="project.description_html ? project.description_html : '<p>' + message('todo.is.ui.project.nodescription') + '</p>'"></div>
-                            </div>
-                            <div class="col-md-4 text-right">
-                                <span ng-repeat="user in allMembers">
-                                    <img ng-src="{{:: user | userAvatar }}"
-                                         height="36" width="36" style="margin:5px"
-                                         class="{{:: user | userColorRoles }}"
-                                         defer-tooltip="{{:: user | userFullName }}"/>
-                                </span>
-                                <h5><i class="fa fa-users"></i> {{ project.team.name }}</h5>
-                            </div>
-                        </div>
-                        <a ng-if="authorizedProject('update', project) && project.name.indexOf('Peetic ') != -1"
-                           ng-click="showProjectEditModal('administration')">
+                    <div class="btn-toolbar ml-1 mt-1 mt-lg-0 align-items-end d-block d-md-flex flex-nowrap">
+                        <button ng-if="authorizedProject('update', project) && project.name.indexOf('Peetic ') != -1"
+                                class="btn btn-danger btn-sm hover-display text-nowrap"
+                                ng-click="showProjectEditModal('administration')"
+                                type="button">
                             ${message(code: 'is.ui.project.sample.delete')}
+                        </button>
+                        <a ng-if="authorizedFeature('create')"
+                           href="#/feature/new"
+                           class="btn btn-secondary btn-sm text-nowrap">${message(code: "todo.is.ui.feature.new")}</a>
+                        <a ui-sref="backlog.backlog.story.new({elementId: 'sandbox'})"
+                           class="btn btn-secondary btn-sm text-nowrap">${message(code: "todo.is.ui.story.new")}</a>
+                        <a ng-if="currentOrNextSprint && authorizedTask('create', {sprint: currentOrNextSprint}) && !(session.po() && !session.sm())"
+                           ui-sref="taskBoard.task.new({sprintId: currentOrNextSprint.id})"
+                           class="btn btn-secondary btn-sm text-nowrap">${message(code: "todo.is.ui.task.new")}</a>
+                        <entry:point id="project-dashboard-buttons"/>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <g:if test="${grailsApplication.config.icescrum.feedback.enable}">
+                        <div ng-controller="userRatingCtrl">
+                            <div class="rating-container" ng-if=":: online && showRating()">
+                                <a class="btn btn-icon rating-close" href="" ng-if="showReview" ng-click="removeRating()"><span class="icon icon-close"></span></a>
+                                <div class="rating-content">
+                                    <div ng-if="!thankYou && !showRatingText">
+                                        <div class="rating-title">
+                                            ${message(code: 'is.ui.rating.text.part.start')}
+                                            <a class="link" href ng-click="showReleaseNotesModal()">iceScrum ${g.meta(name: "app.version")}</a>
+                                            ${message(code: 'is.ui.rating.text.part.end')}
+                                        </div>
+                                        <div star-rating rating-value="currentUser.preferences.iceScrumRating" max="5" on-rating-selected="onSelectRating(rating)"></div>
+                                        <a href class="small text-muted" ng-click="skipRating()">${message(code: 'is.ui.rating.skip')}</a>
+                                    </div>
+                                    <div class="form rating-textarea" ng-if="!thankYou && showRatingText">
+                                        <div class="form-group">
+                                            <label>${g.message(code: 'is.ui.rating.text.label')}</label>
+                                            <textarea class="form-control" ng-model="rating.text"></textarea>
+                                            <button type="button"
+                                                    ng-disabled="!rating.text"
+                                                    ng-click="submitRating()"
+                                                    class="btn btn-primary float-right">
+                                                ${message(code: 'is.ui.rating.submit')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div ng-if="thankYou">
+                                        <h3>${g.message(code: 'is.ui.rating.thankyou')}</h3>
+                                        <br/>
+                                        <h3 ng-if="showReview"><a href="https://www.icescrum.com/wp-json/kagilum/v1/rating/{{ ratingId }}" class="link">${g.message(code: 'is.ui.rating.review')}</a></h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </g:if>
+                    <div class="float-right">
+                        <button class="btn btn-icon btn-secondary btn-sm hover-visible text-nowrap"
+                                ng-if="authorizedProject('update', project)"
+                                ng-click="showProjectEditModal()"
+                                type="button">
+                            <i class="icon icon-edit"></i>
+                        </button>
+                    </div>
+                    <div class="rich-content" ng-bind-html="project.description_html ? project.description_html : '<p>' + message('todo.is.ui.project.nodescription') + '</p>'"></div>
+                    <div class="avatars-and-stats">
+                        <div class="avatars d-flex align-items-center justify-content-center"
+                             ng-class="{'avatars-size-sm': allMembers.length >= 12 && allMembers.length < 18, 'avatars-size-xs': allMembers.length >= 18, 'flex-wrap': allMembers.length >= 35}">
+                            <div class="avatar {{ user | userColorRoles }}" ng-repeat="user in allMembers">
+                                <img ng-src="{{:: user | userAvatar }}"
+                                     uib-tooltip="{{:: user | userFullName }}"/>
+                            </div>
+                        </div>
+                        <div class="stats d-block d-sm-flex text-center flex-wrap justify-content-md-around justify-content-lg-center">
+                            <div class="stat-number mr-lg-2">{{ project.stories_count }}</div>
+                            <div class="stat-title">${message(code: 'todo.is.ui.stories')}</div>
+                        </div>
+                        <div class="stats d-block d-sm-flex text-center flex-wrap justify-content-md-around justify-content-lg-center">
+                            <div class="stat-number mr-lg-2">{{ project.releases_count }}</div>
+                            <div class="stat-title">${message(code: 'todo.is.ui.releases')}</div>
+                        </div>
+                    </div>
+                    <div ng-if="release.vision_html" class="release-vision">
+                        <strong class="text-accent">${message(code: 'is.release')} {{ release.name }}</strong>
+                        <div class="rich-content"
+                             ng-bind-html="release.vision_html">
+                        </div>
+                    </div>
+                    <div class="row release-dates">
+                        <div class="col-6"><strong>{{ release.startDate | dayShort }}</strong></div>
+                        <div class="col-6 text-right"><strong>{{ release.endDate | dayShort }}</strong></div>
+                    </div>
+                    <ng-include src="'release.timeline.html'" ng-controller="releaseTimelineCtrl"></ng-include>
+                    <div ng-if="currentOrNextSprint.goal" class="sprint-goal">
+                        <div class="sprint-goal-label">{{ message('todo.is.ui.sprint.goal.label', [currentOrNextSprint.index]) }}</div>
+                        <div>{{ currentOrNextSprint.goal }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card hover-container">
+                <div class="card-header">
+                    <span class="card-title">
+                        ${message(code: 'is.ui.project.doneDefinition.title')}
+                    </span>
+                </div>
+                <div class="card-body rich-content">
+                    <div class="float-right">
+                        <a class="btn btn-icon btn-secondary btn-sm float-right hover-visible"
+                           href="#/taskBoard/{{ currentOrNextSprint.id }}/details"
+                           ng-if="currentOrNextSprint.id && authorizedSprint('update', currentOrNextSprint)">
+                            <i class="icon icon-edit"></i>
                         </a>
-                        <div class="row project-info">
-                            <div class="col-md-6" style="text-align: left;"><i class="fa fa-sticky-note"></i> {{ project.stories_count }} ${message(code: 'todo.is.ui.stories')}</div>
-                            <div class="col-md-6" style="text-align: right;"><i class="fa fa-calendar"></i> {{ project.releases_count }} ${message(code: 'todo.is.ui.releases')}</div>
-                        </div>
-                        <ng-include src="'release.timeline.href.html'" ng-controller="releaseTimelineCtrl"></ng-include>
-                        <div class="row project-rel-dates">
-                            <div class="col-md-6">{{ release.startDate | dayShort }}</div>
-                            <div class="col-md-6 text-right">{{ release.endDate | dayShort }}</div>
-                        </div>
-                        <div ng-show="currentOrNextSprint.goal">
-                            <p><strong>{{ message('todo.is.ui.sprint.goal.label', [currentOrNextSprint.index]) }}</strong> {{ currentOrNextSprint.goal }}</p>
-                        </div>
-                        <div class="row">
-                            <div class="btn-toolbar">
-                                <a ng-if="authorizedFeature('create')"
-                                   href="#/feature/new"
-                                   class="btn btn-default">${message(code: "todo.is.ui.feature.new")}</a>
-                                <a ui-sref="backlog.backlog.story.new({elementId: 'sandbox'})"
-                                   class="btn btn-default">${message(code: "todo.is.ui.story.new")}</a>
-                                <a ng-if="currentOrNextSprint && authorizedTask('create', {sprint: currentOrNextSprint}) && !(session.po() && !session.sm())"
-                                   ui-sref="taskBoard.task.new({sprintId: currentOrNextSprint.id})"
-                                   class="btn btn-default">${message(code: "todo.is.ui.task.new")}</a>
-                                <entry:point id="project-dashboard-buttons"/>
-                            </div>
-                        </div>
                     </div>
+                    <div ng-bind-html="currentOrNextSprint.doneDefinition_html ? currentOrNextSprint.doneDefinition_html : '<p>${message(code: 'todo.is.ui.sprint.nodonedefinition')}</p>'"></div>
                 </div>
             </div>
-            <div class="panel-container">
-                <div class="panel panel-light">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">
-                            <i class="fa fa-picture-o"></i> <g:message code="is.ui.project.vision.title"/>
-                            <a class="btn btn-default btn-sm pull-right visible-on-hover"
-                               href="#/planning/{{ release.id }}/details"
-                               ng-if="release.id && authorizedRelease('update', release)">
-                                <i class="fa fa-pencil"></i>
-                            </a>
-                        </h3>
+            <div class="card hover-container">
+                <div class="card-header">
+                    <span class="card-title">
+                        ${message(code: 'is.ui.project.retrospective.title')}
+                    </span>
+                </div>
+                <div class="card-body rich-content">
+                    <div class="float-right">
+                        <a class="btn btn-icon btn-secondary btn-sm float-right hover-visible"
+                           href="#/taskBoard/{{ lastSprint.id }}/details"
+                           ng-if="lastSprint.id && authorizedSprint('update', lastSprint)">
+                            <i class="icon icon-edit"></i>
+                        </a>
                     </div>
-                    <div class="panel-body rich-content"
-                         ng-bind-html="release.vision_html ? release.vision_html : '<p>${message(code: 'todo.is.ui.release.novision')}</p>'">
-                    </div>
+                    <div ng-bind-html="lastSprint.retrospective_html ? lastSprint.retrospective_html : '<p>${message(code: 'todo.is.ui.sprint.noretrospective')}</p>'"></div>
                 </div>
             </div>
-            <div class="panel-container">
-                <div class="panel panel-light">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">
-                            <i class="fa fa-check-square-o"></i> <g:message code="is.ui.project.doneDefinition.title"/>
-                            <a class="btn btn-default btn-sm pull-right visible-on-hover"
-                               href="#/taskBoard/{{ currentOrNextSprint.id }}/details"
-                               ng-if="currentOrNextSprint.id && authorizedSprint('update', currentOrNextSprint)">
-                                <i class="fa fa-pencil"></i>
-                            </a>
-                        </h3>
-                    </div>
-                    <div class="panel-body rich-content"
-                         ng-bind-html="currentOrNextSprint.doneDefinition_html ? currentOrNextSprint.doneDefinition_html : '<p>${message(code: 'todo.is.ui.sprint.nodonedefinition')}</p>'">
-                    </div>
+            <div class="card attachments"
+                 flow-init
+                 flow-drop
+                 flow-files-submitted="attachmentQuery($flow, project)"
+                 flow-drop-enabled="authorizedProject('upload', project)"
+                 flow-drag-enter="dropClass='card drop-enabled'"
+                 flow-drag-leave="dropClass='card'"
+                 ng-class="authorizedProject('upload', project) && dropClass">
+                <div class="card-header">
+                    <span class="card-title">
+                        ${message(code: 'is.ui.project.attachment.title')}
+                    </span>
                 </div>
-            </div>
-            <div class="panel-container">
-                <div class="panel panel-light">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">
-                            <i class="fa fa-repeat"></i> <g:message code="is.ui.project.retrospective.title"/>
-                            <a class="btn btn-default btn-sm pull-right visible-on-hover"
-                               href="#/taskBoard/{{ lastSprint.id }}/details"
-                               ng-if="lastSprint.id && authorizedSprint('update', lastSprint)">
-                                <i class="fa fa-pencil"></i>
-                            </a>
-                        </h3>
-                    </div>
-                    <div class="panel-body rich-content"
-                         ng-bind-html="lastSprint.retrospective_html ? lastSprint.retrospective_html : '<p>${message(code: 'todo.is.ui.sprint.noretrospective')}</p>'">
-                    </div>
-                </div>
-            </div>
-            <div class="panel-container">
-                <div class="panel panel-light"
-                     flow-init
-                     flow-drop
-                     flow-files-submitted="attachmentQuery($flow, project)"
-                     flow-drop-enabled="authorizedProject('upload', project)"
-                     flow-drag-enter="dropClass='panel panel-light drop-enabled'"
-                     flow-drag-leave="dropClass='panel panel-light'"
-                     ng-class="authorizedProject('upload', project) && dropClass">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">
-                            <i class="fa fa-file"></i> <g:message code="is.ui.project.attachment.title"/>
-                        </h3>
-                    </div>
-                    <div class="panel-body" style="padding-bottom:0">
-                        <div ng-if="authorizedProject('upload', project)"
-                             style="position:relative"
-                             ng-controller="attachmentNestedCtrl">
-                            <button type="button"
-                                    class="btn btn-default"
-                                    flow-btn>
-                                <i class="fa fa-upload"></i> ${message(code: 'todo.is.ui.new.upload')}
-                            </button>
-                            <entry:point id="attachment-add-buttons"/>
-                        </div>
-                        <div class="row" style="max-height: 175px; margin-top:10px;">
-                            <div ng-include="'attachment.list.html'">
-                            </div>
+                <div class="card-body">
+                    <div class="drop-zone d-flex align-items-center justify-content-center">
+                        <div>
+                            <asset:image src="application/upload.svg" width="70" height="70"/>
+                            <span class="drop-text">${message(code: 'todo.is.ui.drop.here')}</span>
                         </div>
                     </div>
+                    <div ng-if="authorizedProject('upload', project)" ng-controller="attachmentNestedCtrl" class="upload-and-apps row">
+                        <div class="upload-file col-6">
+                            <span class="attachment-icon"></span><span flow-btn class="link">${message(code: 'todo.is.ui.attachment.add')}</span>&nbsp;<span class="d-none d-md-inline">${message(code: 'todo.is.ui.attachment.drop')}</span>
+                        </div>
+                        <div class="upload-apps col-6">
+                            <g:include view="attachment/_buttons.gsp"/>
+                        </div>
+                    </div>
+                    <div ng-include="'attachment.list.html'"></div>
                 </div>
             </div>
         </div>
-        <div class="widget-column">
-            <div class="panel-container">
-                <div class="panel panel-light" ng-controller="chartCtrl">
-                    <div class="panel-heading" ng-controller="projectChartCtrl">
-                        <h3 class="panel-title">
-                            <i class="fa fa-area-chart"></i> ${message(code: 'is.ui.project.chart.title')}
-                            <div class="btn-toolbar pull-right">
-                                <entry:point id="dashboard-chart-toolbar"/>
-                                <div class="btn-group">
-                                    <button class="btn btn-default btn-sm"
-                                            ng-click="openChartInModal(chartParams)"
-                                            type="button">
-                                        <i class="fa fa-search-plus"></i>
-                                    </button>
-                                    <button class="btn btn-default btn-sm"
-                                            ng-click="saveChart(chartParams)"
-                                            type="button">
-                                        <i class="fa fa-floppy-o"></i>
-                                    </button>
-                                </div>
-                                <div uib-dropdown
-                                     class="btn-group btn-group-sm">
-                                    <button class="btn btn-default btn-sm"
-                                            type="button"
-                                            uib-dropdown-toggle>
-                                        <span defer-tooltip="${message(code: 'todo.is.ui.charts')}"><i class="fa fa-bar-chart"></i> <i class="fa fa-caret-down"></i></span>
-                                    </button>
-                                    <ul uib-dropdown-menu
-                                        class="dropdown-menu-right">
-                                        <li role="presentation" class="dropdown-header">${message(code: 'is.project')}</li>
-                                        <li ng-repeat="chart in projectCharts.project"><a href ng-click="openChartAndSaveSetting('project', chart.id, project, project, 'project', 'chart')">{{ message(chart.name) }}</a></li>
-                                        <li ng-if="release.id" class="divider"></li>
-                                        <li ng-if="release.id" role="presentation" class="dropdown-header">${message(code: 'is.release')}</li>
-                                        <li ng-if="release.id" ng-repeat="chart in projectCharts.release"><a href ng-click="openChartAndSaveSetting('release', chart.id, release, project, 'project', 'chart')">{{ message(chart.name) }}</a></li>
-                                        <li ng-if="currentOrLastSprint.id" class="divider"></li>
-                                        <li ng-if="currentOrLastSprint.id" role="presentation" class="dropdown-header">${message(code: 'is.sprint')}</li>
-                                        <li ng-if="currentOrLastSprint.id" ng-repeat="chart in projectCharts.sprint"><a href
-                                                                                                                        ng-click="openChartAndSaveSetting('sprint', chart.id, currentOrLastSprint , project, 'project', 'chart')">{{ message(chart.name) }}</a>
-                                        </li>
-                                    </ul>
-                                </div>
+        <div class="panel-column col-md-6">
+            <entry:point id="project-dashboard-before-charts"/>
+            <div class="card project-indicators" ng-controller="chartCtrl">
+                <div class="card-header" ng-controller="projectChartCtrl">
+                    <span class="card-title">
+                        ${message(code: 'is.ui.project.chart.title')}
+                    </span>
+                    <entry:point id="project-dashboard-charts-after-title"/>
+                    <div class="btn-toolbar float-right">
+                        <div uib-dropdown
+                             class="btn-group">
+                            <button class="btn btn-link btn-sm"
+                                    type="button"
+                                    aria-label="${message(code: 'todo.is.ui.charts')}"
+                                    uib-dropdown-toggle>
+                                {{ options.title.text }}
+                            </button>
+                            <div uib-dropdown-menu
+                                 class="dropdown-menu-right">
+                                <span role="presentation" class="dropdown-header">${message(code: 'is.project')}</span>
+                                <a class="dropdown-item"
+                                   ng-repeat="chart in projectCharts.project"
+                                   ng-class="{'active': chart.id == chartParams.chartName && chartParams.itemType == 'project'}"
+                                   href
+                                   ng-click="openChartAndSaveSetting('project', chart.id, project, project, 'project', 'chart', dashboardChartOptions)">
+                                    {{ message(chart.name) }}
+                                </a>
+                                <div ng-if="release.id" class="dropdown-divider"></div>
+                                <span ng-if="release.id" role="presentation" class="dropdown-header">${message(code: 'is.release')}</span>
+                                <a class="dropdown-item"
+                                   ng-class="{'active': chart.id == chartParams.chartName && chartParams.itemType == 'release'}"
+                                   ng-if="release.id"
+                                   ng-repeat="chart in projectCharts.release"
+                                   href
+                                   ng-click="openChartAndSaveSetting('release', chart.id, release, project, 'project', 'chart', dashboardChartOptions)">
+                                    {{ message(chart.name) }}
+                                </a>
+                                <div ng-if="currentOrLastSprint.id" class="dropdown-divider"></div>
+                                <span ng-if="currentOrLastSprint.id" role="presentation" class="dropdown-header">${message(code: 'is.sprint')}</span>
+                                <a class="dropdown-item"
+                                   ng-class="{'active': chart.id == chartParams.chartName && chartParams.itemType == 'sprint'}"
+                                   ng-if="currentOrLastSprint.id"
+                                   ng-repeat="chart in projectCharts.sprint"
+                                   href
+                                   ng-click="openChartAndSaveSetting('sprint', chart.id, currentOrLastSprint , project, 'project', 'chart', dashboardChartOptions)">
+                                    {{ message(chart.name) }}
+                                </a>
                             </div>
-                        </h3>
+                        </div>
                     </div>
-                    <div class="panel-body" ng-if="userChart.item" ng-init="openChart(userChart.itemType, userChart.chartName, userChart.item)">
-                        <nvd3 options="options" data="data" config="{refreshDataOnly: false}"></nvd3>
+                </div>
+                <div class="card-body" ng-if="userChart.item" ng-init="openChart(userChart.itemType, userChart.chartName, userChart.item, dashboardChartOptions)">
+                    <div class="clearfix mb-2">
+                        <div class="float-right">
+                            <div class="btn-group">
+                                <entry:point id="dashboard-chart-toolbar"/>
+                                <button class="btn-icon btn btn-secondary btn-sm"
+                                        ng-click="saveChart(chartParams)"
+                                        type="button">
+                                    <i class="icon icon-save"></i>
+                                </button>
+                                <button class="btn-icon btn btn-secondary btn-sm"
+                                        ng-click="openChartInModal(chartParams)"
+                                        type="button">
+                                    <i class="icon icon-expand"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="text-right"
-                         style="padding: 0 10px 6px 0">
-                        <documentation doc-url="indicators-and-reporting" title="is.chart.help"/>
+                    <nvd3 options="options" data="data" config="{refreshDataOnly: false}"></nvd3>
+                    <div class="clearfix mt-2">
+                        <div class="float-right">
+                            <documentation doc-url="indicators-and-reporting" title=""/>
+                        </div>
                     </div>
                 </div>
             </div>
-            <entry:point id="project-dashboard-top-right"/>
-            <div class="panel-container">
-                <div class="panel panel-light">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">
-                            <i class="fa fa-clock-o"></i> <g:message code="todo.is.ui.history"/>
-                            <small class="pull-right">
-                                <a class="rss"
-                                   defer-tooltip="${message(code: 'todo.is.ui.feed')}"
-                                   href="{{ openWorkspaceUrl(project) + 'project/feed' }}">
-                                    <i class="fa fa-rss fa-lg visible-on-hover"></i>
-                                </a>
-                            </small>
-                        </h3>
+            <div class="card"
+                 ng-controller="meetingCtrl"
+                 ng-init="subject = project">
+                <div class="card-header">
+                    <span class="card-title">${message(code: 'is.ui.collaboration.meetings')}</span>
+                </div>
+                <div class="card-body">
+                    <div ng-if=":: authorizedMeeting('create')"
+                         class="align-items-center d-flex justify-content-between">
+                        <div class="font-size-sm">
+                            <b>${message(code: 'is.ui.collaboration.start')}</b>
+                        </div>
+                        <div>
+                            <div class="d-flex justify-content-end">
+                                <div ng-if="!creating">
+                                    <a href
+                                       ng-repeat="provider in getFilteredProviders()"
+                                       ng-click="createMeeting(subject, provider)"
+                                       ng-class="{'disabled': !provider.enabled}"
+                                       class="meeting-provider-container ml-2">
+                                        <span class="meeting-provider meeting-provider-{{:: provider.id }}" title="{{:: provider.name }}"></span>
+                                    </a>
+                                </div>
+                                <div class="dot-elastic align-middle align-self-center mr-4" ng-if="creating"></div>
+                                <a ng-if="providers.length != 0"
+                                   class="btn btn-secondary btn-sm plus-app"
+                                   ng-click="showAppsModal(message('is.ui.apps.tag.collaboration'), true)"
+                                   href></a>
+                            </div>
+                        </div>
                     </div>
-                    <div class="panel-body activities panel-light">
-                        <div ng-repeat="activity in activities" ng-show="$index < 5 || pref.showMore">
-                            <div class="activity">
-                                <div class="media-left">
-                                    <img ng-src="{{activity.poster | userAvatar}}"
-                                         class="{{ activity.poster | userColorRoles }}"
-                                         alt="{{activity.poster | userFullName}}"/>
+                    <hr ng-if="hasMeetings()"/>
+                    <div ng-include="'meetings.html'"></div>
+                </div>
+            </div>
+            <entry:point id="project-dashboard-before-history"/>
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">
+                        ${message(code: 'todo.is.ui.history')}
+                    </span>
+                    <a class="btn btn-icon btn-secondary btn-sm float-right"
+                       href="{{ (project.pkey | projectUrl) + 'project/feed' }}">
+                        <i class="icon icon-rss"></i>
+                    </a>
+                </div>
+                <div class="card-body font-size-sm">
+                    <div ng-repeat="activity in activities" ng-show="$index < 5 || pref.showMore['activities']">
+                        <div class="activity media">
+                            <div class="{{ activity.poster | userColorRoles }} avatar mr-3">
+                                <img ng-src="{{activity.poster | userAvatar}}"
+                                     width="37px"
+                                     height="37px"
+                                     class="align-self-center"
+                                     alt="{{:: activity.poster | userFullName}}"/>
+                            </div>
+                            <div class="media-body">
+                                <div class="time-stamp float-right">
+                                    <time timeago datetime="{{ activity.dateCreated }}">
+                                        {{ activity.dateCreated | dateTime }}
+                                    </time>
                                 </div>
-                                <div class="media-body">
-                                    <div class="text-muted pull-right">
-                                        <time timeago datetime="{{ activity.dateCreated }}">
-                                            {{ activity.dateCreated | dateTime }}
-                                        </time>
-                                        <i class="fa fa-clock-o"></i>
-                                    </div>
-                                    <div>
-                                        {{activity.poster | userFullName}}
-                                    </div>
-                                    <div>
-                                        {{ activity | activityName }}
-                                        <strong ng-if="activity.code != 'delete'">
-                                            <a href ng-click="openFromId(activity)">{{ activity.label }}</a>
-                                        </strong>
-                                        <strong ng-if="activity.code == 'delete'">{{ activity.label }}</strong>
-                                    </div>
+                                <div>
+                                    {{activity.poster | userFullName}}
+                                </div>
+                                <div>
+                                    <span class="text-accent">{{ activity | activityName }}</span>
+                                    <a href ng-click="openFromId(activity)" ng-if="activity.code != 'delete'" class="link">{{ activity.label }}</a>
+                                    <span ng-if="activity.code == 'delete'">{{ activity.label }}</span>
                                 </div>
                             </div>
-                            <hr ng-if="!$last">
                         </div>
-                        <div ng-if="activities.length > 5 && !pref.showMore" class="text-center">
-                            <a href ng-click="showMore()"><i class="fa fa-caret-down"></i></a>
-                        </div>
-                        <div ng-if="activities != undefined && activities.length == 0">
-                            <div style="text-align: center; padding:5px; font-size:14px;">
-                                <a target="_blank"
-                                   href="https://www.icescrum.com/documentation/getting-started-with-icescrum?utm_source=dashboard&utm_medium=link&utm_campaign=icescrum">
-                                    <i class="fa fa-question-circle"></i>
-                                    ${message(code: 'is.ui.documentation.getting.started.extended')}
-                                </a>
-                            </div>
+                        <hr ng-if="!$last">
+                    </div>
+                    <div ng-if="activities.length > 5 && !pref.showMore['activities']" class="text-center">
+                        <span ng-click="showMore('activities')" class="toggle-more">${message(code: 'todo.is.ui.history.more')}</span>
+                    </div>
+                    <div ng-if="activities != undefined && activities.length == 0">
+                        <div class="text-center" style="padding:5px; font-size:14px;">
+                            <a target="_blank"
+                               href="https://www.icescrum.com/documentation/getting-started-with-icescrum?utm_source=dashboard&utm_medium=link&utm_campaign=icescrum">
+                                <i class="fa fa-question-circle"></i>
+                                ${message(code: 'is.ui.documentation.getting.started.extended')}
+                            </a>
                         </div>
                     </div>
                 </div>

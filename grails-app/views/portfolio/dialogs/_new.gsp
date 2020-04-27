@@ -23,58 +23,56 @@
 --}%
 
 
-<is:modal icon="briefcase" title="{{ (portfolio.name ? portfolio.name : '${message(code: /is.dialog.wizard.portfolio/)}') + (portfolio.fkey ? ' - ' + portfolio.fkey : '') }}" class="wizard" footer="${false}">
+<is:modal icon="workspace-icon icon-portfolio" title="{{ (portfolio.name ? portfolio.name : '${message(code: /is.dialog.wizard.portfolio/)}') + (portfolio.fkey ? ' - ' + portfolio.fkey : '') }}" class="modal-split" footer="${false}">
     <form name="formHolder.portfolioForm"
           show-validation
           novalidate>
-        <wizard class="row wizard-row" name="portfolio">
-            <wz-step wz-title="${message(code: "is.dialog.wizard.section.portfolio")}" icon="fa fa-pencil">
+        <wizard class="row" name="portfolio">
+            <wz-step wz-title="${message(code: "is.dialog.wizard.section.portfolio")}">
                 <ng-include src="'form.general.portfolio.html'"></ng-include>
-                <div class="footer-btn-toolbar">
-                    <div class="pull-right btn-toolbar">
-                        <button type="button"
-                                role="button"
-                                class="btn btn-default"
-                                ng-click="$close()">
-                            ${message(code: 'is.button.cancel')}
-                        </button>
-                        <input type="submit" class="btn btn-default" ng-disabled="formHolder.portfolioForm.$invalid" wz-next value="${message(code: 'todo.is.ui.wizard.next')}"/>
-                    </div>
-                </div>
-            </wz-step>
-            <wz-step wz-title="${message(code: "is.dialog.wizard.section.portfolio.projects")}" icon="fa fa-folder">
-                <ng-include src="'form.projects.portfolio.html'"></ng-include>
-                <div class="footer-btn-toolbar">
+                <div class="float-right btn-toolbar">
                     <button type="button"
                             role="button"
-                            class="btn btn-default pull-left"
+                            class="btn btn-secondary"
                             ng-click="$close()">
                         ${message(code: 'is.button.cancel')}
                     </button>
-                    <div class="btn-toolbar pull-right">
+                    <input type="submit" class="btn btn-secondary" ng-disabled="formHolder.portfolioForm.$invalid" wz-next value="${message(code: 'todo.is.ui.wizard.next')}"/>
+                </div>
+            </wz-step>
+            <wz-step wz-title="${message(code: "is.dialog.wizard.section.portfolio.projects")}">
+                <ng-include src="'form.projects.portfolio.html'"></ng-include>
+                <div>
+                    <button type="button"
+                            role="button"
+                            class="btn btn-secondary float-left"
+                            ng-click="$close()">
+                        ${message(code: 'is.button.cancel')}
+                    </button>
+                    <div class="btn-toolbar float-right">
                         <button type="button"
                                 role="button"
-                                class="btn btn-default"
+                                class="btn btn-secondary"
                                 wz-previous="previous">
                             ${message(code: 'todo.is.ui.wizard.previous')}
                         </button>
-                        <input type="submit" class="btn btn-default" ng-disabled="portfolio.projects.length < 1" wz-next value="${message(code: 'todo.is.ui.wizard.next')}"/>
+                        <input type="submit" class="btn btn-secondary" ng-disabled="portfolio.projects.length < 1" wz-next value="${message(code: 'todo.is.ui.wizard.next')}"/>
                     </div>
                 </div>
             </wz-step>
-            <wz-step wz-title="${message(code: "is.dialog.wizard.section.portfolio.members")}" icon="fa fa-users">
+            <wz-step wz-title="${message(code: "is.dialog.wizard.section.portfolio.members")}">
                 <ng-include src="'form.members.portfolio.html'"></ng-include>
-                <div class="footer-btn-toolbar">
+                <div>
                     <button type="button"
                             role="button"
-                            class="btn btn-default"
+                            class="btn btn-secondary"
                             ng-click="$close()">
                         ${message(code: 'is.button.cancel')}
                     </button>
-                    <div class="btn-toolbar pull-right">
+                    <div class="btn-toolbar float-right">
                         <button type="button"
                                 role="button"
-                                class="btn btn-default"
+                                class="btn btn-secondary"
                                 wz-previous="previous">
                             ${message(code: 'todo.is.ui.wizard.previous')}
                         </button>

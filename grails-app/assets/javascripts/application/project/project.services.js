@@ -42,14 +42,14 @@ services.factory('Project', ['Resource', function($resource) {
         });
 }]);
 
-services.service("ProjectService", ['Project', 'Session', 'FormService', 'CacheService', 'IceScrumEventType', 'PushService', '$rootScope', '$q', function(Project, Session, FormService, CacheService, IceScrumEventType, PushService, $rootScope, $q) {
+services.service("ProjectService", ['Project', 'Session', 'FormService', 'CacheService', 'IceScrumEventType', 'WorkspaceType', 'PushService', '$rootScope', '$q', function(Project, Session, FormService, CacheService, IceScrumEventType, WorkspaceType, PushService, $rootScope, $q) {
     var self = this;
     var crudMethods = {};
     crudMethods[IceScrumEventType.CREATE] = function(project) {
         return CacheService.addOrUpdate('project', project);
     };
     crudMethods[IceScrumEventType.UPDATE] = function(project) {
-        if (Session.workspaceType == 'project') {
+        if (Session.workspaceType === WorkspaceType.PROJECT) {
             var workspace = Session.getWorkspace();
             if (workspace.id == project.id) {
                 if (project.pkey != workspace.pkey) {
@@ -67,7 +67,7 @@ services.service("ProjectService", ['Project', 'Session', 'FormService', 'CacheS
         return CacheService.addOrUpdate('project', project);
     };
     crudMethods[IceScrumEventType.DELETE] = function(project) {
-        if (Session.workspaceType == 'project') {
+        if (Session.workspaceType === WorkspaceType.PROJECT) {
             var workspace = Session.getWorkspace();
             if (workspace.id == project.id) {
                 $rootScope.notifyWarning('todo.is.ui.project.deleted');
@@ -79,6 +79,11 @@ services.service("ProjectService", ['Project', 'Session', 'FormService', 'CacheS
     _.each(crudMethods, function(crudMethod, eventType) {
         PushService.registerListener('project', eventType, crudMethod);
     });
+
+    PushService.registerListener('project', "onlineMembers", function(message) {
+        return CacheService.addOrUpdate('project', message.project);
+    });
+
     this.get = function(id) {
         var cachedProject = CacheService.get('project', id);
         return cachedProject ? $q.when(cachedProject) : self.refresh(id);
@@ -133,9 +138,6 @@ services.service("ProjectService", ['Project', 'Session', 'FormService', 'CacheS
             data.projects = self.mergeProjects(data.projects);
             return data;
         });
-    };
-    this.listPublicWidget = function() {
-        return Project.query({action: 'listPublicWidget'}).$promise;
     };
     this.listByUser = function(params) {
         if (!params) {

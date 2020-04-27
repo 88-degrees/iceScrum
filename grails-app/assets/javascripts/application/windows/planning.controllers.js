@@ -22,7 +22,7 @@
  *
  */
 
-extensibleController('planningCtrl', ['$scope', '$state', 'StoryService', 'SprintStatesByName', 'ReleaseStatesByName', 'project', function($scope, $state, StoryService, SprintStatesByName, ReleaseStatesByName, project) {
+extensibleController('planningCtrl', ['$scope', '$state', 'StoryService', 'ReleaseService', 'SprintService', 'SprintStatesByName', 'ReleaseStatesByName', 'project', function($scope, $state, StoryService, ReleaseService, SprintService, SprintStatesByName, ReleaseStatesByName, project) {
     $scope.isSelected = function(selectable) {
         if ($state.params.storyId) {
             return $state.params.storyId == selectable.id;
@@ -97,9 +97,21 @@ extensibleController('planningCtrl', ['$scope', '$state', 'StoryService', 'Sprin
     $scope.isMultipleSprint = function() {
         return _.startsWith($state.current.name, 'planning.release.sprint.multiple');
     };
+    $scope.getVisibleSprintMax = function() {
+        switch ($scope.application.mediaBreakpoint) {
+            case 'xl':
+                return 3;
+            case 'lg':
+                return 2;
+            default:
+                return 1;
+        }
+    };
     // Init
     $scope.viewName = 'planning';
-    $scope.visibleSprintMax = $scope.application.mobilexs ? 1 : ($scope.application.mobile ? 2 : 3);
+    $scope.authorizedRelease = ReleaseService.authorizedRelease;
+    $scope.authorizedSprint = SprintService.authorizedSprint;
+    $scope.visibleSprintMax = $scope.getVisibleSprintMax();
     $scope.visibleSprintOffset = 0;
     $scope.visibleSprints = [];
     $scope.project = project;
@@ -121,13 +133,7 @@ extensibleController('planningCtrl', ['$scope', '$state', 'StoryService', 'Sprin
                 stateName = 'planning.release.sprint.multiple';
                 stateParams = {releaseId: selectedItems[0].parentRelease.id, sprintListId: _.map(selectedItems, 'id')};
             }
-            var currentStateName = $state.current.name;
-            var sameStateName = _.endsWith(currentStateName, '.details') && currentStateName == stateName + '.details' || currentStateName == stateName;
-            var sameStateParams = $state.params.sprintId == stateParams.sprintId && $state.params.releaseId == stateParams.releaseId;
-            var sameState = sameStateName && sameStateParams;
-            if (_.endsWith(currentStateName, '.details') && !sameState || !_.endsWith(currentStateName, '.details') && sameState) {
-                stateName += '.details';
-            }
+            stateName += '.details';
             $state.go(stateName, stateParams);
         }
     };
@@ -199,7 +205,7 @@ extensibleController('planningCtrl', ['$scope', '$state', 'StoryService', 'Sprin
                     return sprint.state == SprintStatesByName.TODO || sprint.state == SprintStatesByName.IN_PROGRESS;
                 });
                 if (firstSprintToShowIndex == -1) {
-                    firstSprintToShowIndex = $scope.sprints.length > $scope.visibleSprintMax ? $scope.sprints.length - $scope.visibleSprintMax - 1 : 0;
+                    firstSprintToShowIndex = $scope.sprints.length > $scope.visibleSprintMax ? $scope.sprints.length - $scope.visibleSprintMax : 0;
                 }
                 $scope.visibleSprintOffset = firstSprintToShowIndex;
             }
@@ -207,10 +213,10 @@ extensibleController('planningCtrl', ['$scope', '$state', 'StoryService', 'Sprin
         $scope.release = release;
         $scope.computeVisibleSprints();
     });
-    $scope.$watchGroup(['application.mobile', 'application.mobilexs'], function(n, o) {
+    $scope.$watch('application.mediaBreakpoint', function() {
         var oldVisible = $scope.visibleSprintMax;
-        $scope.visibleSprintMax = $scope.application.mobilexs ? 1 : ($scope.application.mobile ? 2 : 3);
-        if (oldVisible != $scope.visibleSprintMax) {
+        $scope.visibleSprintMax = $scope.getVisibleSprintMax();
+        if (oldVisible !== $scope.visibleSprintMax) {
             $state.reload();
         }
     });

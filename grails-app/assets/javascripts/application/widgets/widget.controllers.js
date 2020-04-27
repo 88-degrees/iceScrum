@@ -54,7 +54,6 @@ controllers.controller('widgetViewCtrl', ['$scope', '$uibModal', 'Session', 'Cac
             controller: ['$scope', function($scope) {
                 $scope.detailsWidgetDefinition = function(widgetDefinition) {
                     $scope.widgetDefinition = widgetDefinition;
-                    $scope.addWidgetForm.$invalid = !widgetDefinition.available;
                 };
                 $scope.addWidget = function(widgetDefinition) {
                     WidgetService.save(widgetDefinition.id).then(function() {
@@ -90,13 +89,13 @@ controllers.controller('widgetViewCtrl', ['$scope', '$uibModal', 'Session', 'Cac
         orderChanged: position,
         placeholderDisableComputeBounds: true,
         placeholder: function($scopeItem) {
-            var widget = $scopeItem.element.find('.panel')[0];
+            var widget = $scopeItem.element.find('.card')[0];
             var width = widget.getBoundingClientRect().width;
             var height = widget.getBoundingClientRect().height;
             return "<div style='height:" + height + "px;width:" + width + "px;'/>";
         },
         sortableId: 'widgets',
-        containment: '.widget-dashboard > .row',
+        containment: '.widget-view > .row',
         containerPositioning: 'relative'
     };
     $scope.authenticated = Session.authenticated; // This is a function which return value will change when user will be set

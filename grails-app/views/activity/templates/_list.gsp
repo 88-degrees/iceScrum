@@ -20,18 +20,21 @@
 - Vincent Barrier (vbarrier@kagilum.com)
 --}%
 <script type="text/ng-template" id="activity.list.html">
-<div class="activities panel-body" ng-controller="activityCtrl">
+<div class="card-body font-size-sm" ng-controller="activityCtrl">
     <div ng-repeat="groupedActivity in groupedActivities">
-        <div class="activity">
-            <div class="media-left">
-                <img ng-src="{{groupedActivity.poster | userAvatar}}" class="{{ groupedActivity.poster | userColorRoles }}" alt="{{groupedActivity.poster | userFullName}}"/>
+        <div class="activity media">
+            <div class="{{ groupedActivity.poster | userColorRoles }} avatar mr-3">
+                <img ng-src="{{groupedActivity.poster | userAvatar}}"
+                     width="37"
+                     height="37"
+                     class="align-self-center"
+                     alt="{{ groupedActivity.poster | userFullName}}"/>
             </div>
             <div class="media-body">
-                <div class="text-muted pull-right">
+                <div class="time-stamp float-right">
                     <time timeago datetime="{{ groupedActivity.dateCreated }}">
                         {{ groupedActivity.dateCreated | dateTime }}
                     </time>
-                    <i class="fa fa-clock-o"></i>
                 </div>
                 <div>{{groupedActivity.poster | userFullName}}</div>
                 <ul>
@@ -49,21 +52,22 @@
                 </ul>
             </div>
         </div>
+        <hr ng-if="!$last" class="w-50"/>
     </div>
-    <hr/>
     <div ng-if="(selected.activities.length < selected.activities_total) || allActivities"
          ng-switch="allActivities"
          class="text-center">
-        <button ng-switch-default
-                class="btn btn-default"
-                ng-click="activities(selected, true)">
-            <i class="fa fa-plus-square"></i> ${message(code: 'todo.is.ui.history.more')}
-        </button>
-        <button ng-switch-when="true"
-                class="btn btn-default"
-                ng-click="activities(selected, false)">
-            <i class="fa fa-minus-square"></i> ${message(code: 'todo.is.ui.history.less')}
-        </button>
+        <hr class="w-50"/>
+        <span ng-switch-default
+              class="toggle-more"
+              ng-click="activities(selected, true)">
+            ${message(code: 'todo.is.ui.history.more')}
+        </span>
+        <span ng-switch-when="true"
+              class="toggle-more toggle-invert"
+              ng-click="activities(selected, false)">
+            ${message(code: 'todo.is.ui.history.less')}
+        </span>
     </div>
 </div>
 </script>

@@ -21,24 +21,24 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="sprint.new.html">
-<div class="panel panel-light">
-    <div class="panel-heading">
-        <h3 class="panel-title row">
-            <div class="left-title">
-                <i class="fa fa-tasks"></i> <span class="item-name" title="${message(code: "todo.is.ui.sprint.new")}">${message(code: "todo.is.ui.sprint.new")}</span>
+<div class="card">
+    <div class="details-header">
+        <details-layout-buttons remove-ancestor="true"/>
+    </div>
+    <div class="card-header">
+        <div class="card-title">
+            <div class="details-title">
+                <span class="item-name" title="${message(code: "todo.is.ui.sprint.new")}">${message(code: "todo.is.ui.sprint.new")}</span>
             </div>
-            <div class="right-title">
-                <details-layout-buttons ng-if="!isModal" remove-ancestor="true"/>
-            </div>
-        </h3>
+        </div>
+        <div class="form-text">${message(code: 'is.ui.sprint.help')}</div>
     </div>
     <div class="details-no-tab">
-        <div class="panel-body">
-            <div class="help-block">${message(code: 'is.ui.sprint.help')}</div>
-            <form ng-submit="save(sprint, false)"
-                  name='formHolder.sprintForm'
-                  show-validation
-                  novalidate>
+        <form ng-submit="save(sprint, false)"
+              name='formHolder.sprintForm'
+              show-validation
+              novalidate>
+            <div class="card-body">
                 <div class="form-group" ng-class="{'has-error': releaseEndDateWarning}">
                     <label for="sprint.parentRelease">${message(code: 'is.release')}</label>
                     <div class="input-group">
@@ -49,24 +49,24 @@
                             <ui-select-match>{{ $select.selected.name }}</ui-select-match>
                             <ui-select-choices repeat="editableRelease in editableReleases">{{ editableRelease.name }}</ui-select-choices>
                         </ui-select>
-                        <span class="input-group-btn">
+                        <span class="input-group-append">
                             <a ui-sref="planning.release.details({releaseId: sprint.parentRelease.id})"
-                               class="btn btn-default">
+                               class="btn btn-secondary btn-sm">
                                 <i class="fa fa-info-circle"></i>
                             </a>
                         </span>
                     </div>
                     <div ng-if="releaseEndDateWarning"
-                         class="help-block bg-danger spaced-help-block"
+                         class="form-text alert bg-danger spaced-form-text"
                          ng-bind-html="releaseEndDateWarning"></div>
                 </div>
-                <div class="clearfix no-padding">
+                <div class="row is-form-row">
                     <div class="form-half">
                         <label for="sprint.startDate">${message(code: 'is.sprint.startDate')}</label>
                         <div class="input-group">
-                            <span class="input-group-btn">
+                            <span class="input-group-prepend">
                                 <button type="button"
-                                        class="btn btn-default"
+                                        class="btn btn-secondary btn-sm"
                                         ng-click="openDatepicker($event, startDateOptions)">
                                     <i class="fa fa-calendar"></i>
                                 </button>
@@ -98,9 +98,9 @@
                                    uib-datepicker-popup
                                    datepicker-options="endDateOptions"
                                    is-open="endDateOptions.opened"/>
-                            <span class="input-group-btn">
+                            <span class="input-group-append">
                                 <button type="button"
-                                        class="btn btn-default"
+                                        class="btn btn-secondary btn-sm"
                                         ng-click="openDatepicker($event, endDateOptions)">
                                     <i class="fa fa-calendar"></i>
                                 </button>
@@ -108,7 +108,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="btn-toolbar pull-right">
+            </div>
+            <div class="card-footer">
+                <div class="btn-toolbar">
                     <button class="btn btn-primary"
                             ng-disabled="formHolder.sprintForm.$invalid || application.submitting"
                             defer-tooltip="${message(code: 'todo.is.ui.create.and.continue')} (SHIFT+RETURN)"
@@ -125,8 +127,8 @@
                         ${message(code: 'default.button.create.label')}
                     </button>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 </div>
 </script>

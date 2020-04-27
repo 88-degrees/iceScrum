@@ -34,12 +34,15 @@ class AppController implements ControllerErrorHandler {
 
     def appService
     def appDefinitionService
+    def grailsApplication
 
     @Secured('permitAll()')
     def definitions() {
-        def marshalledDefinitions = appDefinitionService.getAppDefinitions().collect { AppDefinition appDefinition ->
+        def marshalledDefinitions = appDefinitionService.getAppDefinitions().findAll {
+            return grailsApplication.config.icescrum.beta.enable && grailsApplication.config.icescrum.beta[it.id]?.enable ? true : !it.isBeta
+        }.collect { AppDefinition appDefinition ->
             Map marshalledAppDefinition = appDefinition.properties.clone()
-            ['class', 'onDisableForProject', 'onEnableForProject', 'isEnabledForServer', 'isAvailableForServer'].each { k ->
+            ['class', 'onDisableForProject', 'onEnableForProject', 'isEnabledForServer', 'isAvailableForServer', 'reportUsageData'].each { k ->
                 marshalledAppDefinition.remove(k)
             }
             ['name', 'baseline', 'description'].each { k ->
@@ -49,10 +52,10 @@ class AppController implements ControllerErrorHandler {
                 message(code: 'is.ui.apps.tag.' + it)
             }
             marshalledAppDefinition.screenshots = appDefinition.screenshots.take(3).collect { String screenshot ->
-                return asset.assetPath([src: appDefinition.getAssetPath(screenshot)])
+                return [light: asset.assetPath([src: appDefinition.getAssetPath(screenshot)]), dark: asset.assetPath([src: appDefinition.getAssetPath(screenshot.replace(".png", "-dark.png"))])]
             }
             def assetLogoAppPath = appDefinition.getAssetPath(appDefinition.logo)
-            marshalledAppDefinition.logo = asset.assetPathExists([src: assetLogoAppPath]) ? asset.assetPath([src: assetLogoAppPath]) : asset.assetPath([src: 'logo-bg.png'])
+            marshalledAppDefinition.logo = asset.assetPathExists([src: assetLogoAppPath]) ? asset.assetPath([src: assetLogoAppPath]) : asset.assetPath([src: 'application/logo-app.png'])
             return marshalledAppDefinition
         }
         render(status: 200, contentType: 'application/json', text: marshalledDefinitions as JSON)

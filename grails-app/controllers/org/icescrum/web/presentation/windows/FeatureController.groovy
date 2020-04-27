@@ -56,6 +56,18 @@ class FeatureController implements ControllerErrorHandler {
         render(status: 200, contentType: 'application/json', text: returnData as JSON)
     }
 
+    @Secured('isAuthenticated()')
+    def uid(int uid, long project) {
+        Project _project = Project.withProject(project)
+        Feature feature = Feature.findByBacklogAndUid(_project, uid)
+        if (feature) {
+            params.id = feature.id.toString()
+            forward(action: "show")
+        } else {
+            render(status: 404)
+        }
+    }
+
     @Secured('productOwner() and !archivedProject()')
     def save(long project) {
         def featureParams = params.feature
@@ -89,23 +101,30 @@ class FeatureController implements ControllerErrorHandler {
                 commonTags = commonTags == null ? feature.tags : commonTags.intersect(feature.tags)
             }
         }
+        def props = [:]
+        Integer state = featureParams.state instanceof String ? featureParams.state.toInteger() : featureParams.state
+        if (state != null) {
+            props.state = state
+        }
         features.each { Feature feature ->
             Feature.withTransaction {
                 bindData(feature, featureParams, [include: ['name', 'description', 'notes', 'color', 'type', 'value', 'rank']])
-                def oldTags = feature.tags
-                if (features.size() > 1) {
-                    (tagParams - oldTags).each { tag ->
-                        feature.addTag(tag)
-                    }
-                    (commonTags - tagParams).each { tag ->
-                        if (oldTags.contains(tag)) {
-                            feature.removeTag(tag)
+                if (featureParams.tags != null) {
+                    def oldTags = feature.tags
+                    if (features.size() > 1) {
+                        (tagParams - oldTags).each { tag ->
+                            feature.addTag(tag)
                         }
+                        (commonTags - tagParams).each { tag ->
+                            if (oldTags.contains(tag)) {
+                                feature.removeTag(tag)
+                            }
+                        }
+                    } else {
+                        feature.tags = tagParams
                     }
-                } else {
-                    feature.tags = tagParams
                 }
-                featureService.update(feature)
+                featureService.update(feature, props)
             }
         }
         def returnData = features.size() > 1 ? features : features.first()
@@ -179,7 +198,7 @@ class FeatureController implements ControllerErrorHandler {
         Project _project = Project.withProject(project)
         Feature feature = Feature.findByBacklogAndUid(_project, uid)
         if (feature) {
-            redirect(uri: "/p/$_project.pkey/#/feature/$feature.id")
+            redirect(uri: "/p/$_project.pkey/#/feature/$feature.id" + (params.tab ? '/' + params.tab : ''))
         } else {
             redirect(controller: 'errors', action: 'error404')
         }
@@ -187,7 +206,7 @@ class FeatureController implements ControllerErrorHandler {
 
     @Secured('inProject() or (isAuthenticated() and stakeHolder())')
     def colors(long project) {
-        def results = ['#C6FFA3', '#FFB593', '#F97C81', '#D39661', '#840048', '#FFFFC7', '#548687', '#473335', '#FFB593', '#B0413E', '#E8AE68', '#FFD275', '#A57F60', '#E3A587', '#DB5A42', '#DDFFD9', '#6C4B5E', '#B3679B', '#E3A587', '#DB5A42', '#4281A4', '#9CAFB7', '#88665D', '#E3A587', '#895B1E']
+        def results = ['#50e3c2', '#4a90e2', '#9013fe', '#bd10e0', '#7ed321', '#8b572a', '#f5a623', '#d0021b', '#d25a00', '#870101', '#53055c', '#002673', '#ff3389', '#c462f6', '#6056eb', '#0067e8', '#6eeb83', '#ffd1c1', '#ff8501', '#ff3e33', '#575757', '#838383']
         def _project = Project.withProject(project)
         def usedColor = _project.features?.collect { it ->
             it.color

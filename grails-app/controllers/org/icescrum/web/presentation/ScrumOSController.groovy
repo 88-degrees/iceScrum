@@ -24,11 +24,16 @@
 
 package org.icescrum.web.presentation
 
+import eu.bitwalker.useragentutils.Browser
 import grails.converters.JSON
 import grails.plugin.springsecurity.annotation.Secured
+import grails.util.Metadata
+import org.icescrum.atmosphere.IceScrumAtmosphereEventListener
+import org.icescrum.atmosphere.IceScrumBroadcaster
 import org.icescrum.core.domain.Portfolio
 import org.icescrum.core.domain.Project
 import org.icescrum.core.domain.User
+import org.icescrum.core.domain.WorkspaceType
 import org.icescrum.core.domain.preferences.ProjectPreferences
 import org.icescrum.core.error.ControllerErrorHandler
 import org.icescrum.core.support.ApplicationSupport
@@ -39,6 +44,7 @@ import sun.misc.BASE64Decoder
 
 class ScrumOSController implements ControllerErrorHandler {
 
+    def userService
     def messageSource
     def servletContext
     def projectService
@@ -47,9 +53,11 @@ class ScrumOSController implements ControllerErrorHandler {
     def grailsApplication
     def uiDefinitionService
     def springSecurityService
+    def atmosphereMeteor
+    def userAgentIdentService
 
     def index() {
-        def user = springSecurityService.currentUser
+        User user = (User) springSecurityService.currentUser
         def workspaces = []
         def portfolioEnabled = grailsApplication.config.icescrum.workspaces.portfolio && grailsApplication.config.icescrum.workspaces.portfolio.enabled(grailsApplication)
         if (portfolioEnabled) {
@@ -65,7 +73,9 @@ class ScrumOSController implements ControllerErrorHandler {
                      browsableWorkspacesExist: browsableProjectsCount > 0,
                      moreWorkspacesExist     : workspaces?.size() > workspacesLimit,
                      portfolioEnabled        : portfolioEnabled,
-                     workspacesFilteredsList : workspaces.take(workspacesLimit)]
+                     workspacesFilteredsList : workspaces.take(workspacesLimit),
+                     isOutdatedBrowser       : userAgentIdentService.isBrowser(Browser.IE11),
+                     colorScheme             : user?.preferences?.colorScheme]
         def workspace = ApplicationSupport.getCurrentWorkspace(params)
         if (workspace) {
             workspace.indexScrumOS.delegate = this
@@ -76,6 +86,9 @@ class ScrumOSController implements ControllerErrorHandler {
             }
             model."$workspace.name" = workspace.object
             model.workspace = workspace
+        } else if (!user) {
+            redirect(controller: 'login', action: 'auth')
+            return
         }
         render(status: 200, view: 'index', model: model)
     }
@@ -92,12 +105,14 @@ class ScrumOSController implements ControllerErrorHandler {
 
     @Secured(["hasRole('ROLE_ADMIN')"])
     def connections() {
-        render(status: 200, contentType: 'application/json', text: [maxUsers          : grailsApplication.config.icescrum.atmosphere.maxUsers,
-                                                                    liveUsers         : grailsApplication.config.icescrum.atmosphere.liveUsers,
-                                                                    maxUsersDate      : grailsApplication.config.icescrum.atmosphere.maxUsersDate,
-                                                                    maxConnections    : grailsApplication.config.icescrum.atmosphere.maxConnections,
-                                                                    maxConnectionsDate: grailsApplication.config.icescrum.atmosphere.maxConnectionsDate,
-                                                                    liveConnections   : grailsApplication.config.icescrum.atmosphere.liveConnections] as JSON)
+        IceScrumBroadcaster broadcaster = ((IceScrumBroadcaster) atmosphereMeteor.broadcasterFactory?.lookup(IceScrumBroadcaster.class, IceScrumAtmosphereEventListener.GLOBAL_CONTEXT))
+        render(status: 200, contentType: 'application/json', text: [maxUsers          : broadcaster.maxUsers,
+                                                                    liveUsers         : broadcaster.liveUsers,
+                                                                    maxUsersDate      : broadcaster.maxUsersDate,
+                                                                    maxConnections    : broadcaster.maxConnections,
+                                                                    maxConnectionsDate: broadcaster.maxConnectionsDate,
+                                                                    transports        : broadcaster.resources.collect { it.transport().toString() }.countBy { it },
+                                                                    liveConnections   : broadcaster.liveConnections] as JSON)
     }
 
     def textileParser(String data) {
@@ -112,20 +127,25 @@ class ScrumOSController implements ControllerErrorHandler {
             def menu = windowDefinition.menu
             if (menu) {
                 if (ApplicationSupport.isAllowed(windowDefinition, params)) {
-                    def menuPositions = ApplicationSupport.menuPositionFromUserPreferences(windowDefinition) ?: [visible: menu.defaultVisibility, pos: menu.defaultPosition]
                     menus << [title   : message(code: menu.title instanceof Closure ? menu.getTitle()(workspace?.object) : menu.title),
                               id      : windowDefinitionId,
-                              icon    : windowDefinition.icon,
-                              position: menuPositions.pos.toInteger(),
-                              visible : menuPositions.visible]
+                              position: userService.getPositionFromUserPreferences(windowDefinition) ?: menu.defaultPosition]
                     menus.sort { it.position }.eachWithIndex { menuEntry, index ->
-                        menuEntry.shortcut = 'ctrl+' + (index + 1)
+                        menuEntry.shortcut = 'shift+' + (index + 1)
                     }
                 }
-                if (windowDefinition.workspace == 'project' && windowDefinition.id != 'project') {
+                if (windowDefinition.workspace == WorkspaceType.PROJECT && windowDefinition.id != 'project') {
                     projectMenus << [id: windowDefinitionId, title: message(code: menu.title)]
                 }
             }
+        }
+        def onlineMembers = null
+        if (workspace?.name == WorkspaceType.PROJECT) {
+            onlineMembers = ((IceScrumBroadcaster) atmosphereMeteor.broadcasterFactory?.lookup(IceScrumBroadcaster.class, '/stream/app/project-' + workspace.object.id))?.users ?: []
+        }
+        def announcement = [:]
+        ['code', 'text', 'type'].each {
+            announcement[it] = Metadata.current['app.announcement.' + it]
         }
         try {
             render(status: 200, template: 'isSettings', model: [workspace      : workspace?.object,
@@ -134,8 +154,11 @@ class ScrumOSController implements ControllerErrorHandler {
                                                                 i18nMessages   : messageSource.getAllMessages(RCU.getLocale(request)),
                                                                 resourceBundles: grailsApplication.config.icescrum.resourceBundles,
                                                                 menus          : menus,
+                                                                announcement   : announcement,
                                                                 defaultView    : workspace ? menus.sort { it.position }[0]?.id : 'home',
                                                                 serverURL      : ApplicationSupport.serverURL(),
+                                                                onlineMembers  : onlineMembers,
+                                                                isMobile       : userAgentIdentService.isMobile(),
                                                                 projectMenus   : projectMenus])
         } catch (Exception exception) {
             if (!exception.message?.contains("Row was updated or deleted by another transaction")) {
@@ -305,10 +328,10 @@ class ScrumOSController implements ControllerErrorHandler {
         User user = id ? User.get(id) : springSecurityService.currentUser
         def searchTerm = term ? '%' + term.trim().toLowerCase() + '%' : '%%';
         def workspaces = []
-        if (!workspaceType || workspaceType == 'portfolio') {
+        if (!workspaceType || workspaceType == WorkspaceType.PORTFOLIO) {
             workspaces.addAll(portfolioService.getAllPortfoliosByUser(user, searchTerm))
         }
-        if (!workspaceType || workspaceType == 'project') {
+        if (!workspaceType || workspaceType == WorkspaceType.PROJECT) {
             workspaces.addAll(projectService.getAllActiveProjectsByUser(user, searchTerm))
         }
         if (paginate && !count) {

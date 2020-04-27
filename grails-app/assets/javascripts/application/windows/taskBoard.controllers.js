@@ -34,7 +34,7 @@ extensibleController('taskBoardCtrl', ['$scope', '$state', '$filter', 'UserServi
         }
     };
     $scope.hasSelected = function() {
-        return $state.params.taskId != undefined;
+        return $state.params.taskId != undefined || $state.params.storyId != undefined;
     };
     $scope.isSortableTaskBoard = function(sprint) {
         return Session.authenticated() && sprint.state < SprintStatesByName.DONE;
@@ -78,7 +78,7 @@ extensibleController('taskBoardCtrl', ['$scope', '$state', '$filter', 'UserServi
                 label += ' (' + tasksState.length;
                 var totalEffort = state !== TaskStatesByName.DONE ? $filter('floatSumBy')(tasksState, 'estimation') : 0;
                 if (totalEffort) {
-                    label += ' - ' + totalEffort + ' <i class="fa ' + $filter('taskStateIcon')(state) + ' fa-small"></i>';
+                    label += ' - ' + totalEffort;
                 }
                 label += ')';
             }
@@ -88,14 +88,13 @@ extensibleController('taskBoardCtrl', ['$scope', '$state', '$filter', 'UserServi
             };
         });
         _.each(TaskTypesByName, function(type) {
-            var label = type === TaskTypesByName.URGENT ? $scope.message('is.ui.sprintPlan.kanban.urgentTasks') : $scope.message('is.ui.sprintPlan.kanban.recurrentTasks');;
+            var label = type === TaskTypesByName.URGENT ? $scope.message('is.ui.sprintPlan.kanban.urgentTasks') : $scope.message('is.ui.sprintPlan.kanban.recurrentTasks');
             var tasksType = _.filter(tasks, {type: type});
             if (tasksType) {
                 label += ' (' + tasksType.length;
                 var totalEffort = $filter('floatSumBy')(tasksType, 'estimation');
                 if (totalEffort) {
-                    var started = _.find(tasksType, ['state', TaskStatesByName.IN_PROGRESS]);
-                    label += ' - ' + totalEffort + ' <i class="fa fa-hourglass-' + (started ? 'half' : 'start') + ' fa-small"></i>';
+                    label += ' - ' + totalEffort;
                 }
                 label += ')';
             }
@@ -155,11 +154,8 @@ extensibleController('taskBoardCtrl', ['$scope', '$state', '$filter', 'UserServi
     $scope.changeSprintFilter = function(sprintFilter) {
         $scope.currentSprintFilter = sprintFilter;
         $scope.refreshTasks();
-        var editableUser = angular.copy(Session.user);
-        editableUser.preferences.filterTask = sprintFilter.id;
-        UserService.update(editableUser).then(function() {
-            Session.user.preferences.filterTask = sprintFilter.id;
-        });
+        Session.user.preferences.filterTask = sprintFilter.id;
+        UserService.update(Session.user);
     };
     $scope.storyFilter = function(story) {
         return $scope.currentSprintFilter.id == 'allTasks' ||
@@ -221,14 +217,14 @@ extensibleController('taskBoardCtrl', ['$scope', '$state', '$filter', 'UserServi
     $scope.totalRemainingTime = function(tasks) {
         return _.sum(_.filter(_.map(tasks, 'estimation'), _.isNumber));
     };
-    $scope.scrollToActiveSprint = function(open) {
-        if (open) {
-            var dropdown = angular.element('.planning-dropdown');
-            var ele = dropdown.find("li>a.active");
-            var list = dropdown.find('.planning-menu');
-            var posi = list.scrollTop() + ele.offset().top - ele.innerHeight();
-            list.animate({
-                scrollTop: posi - 60
+    $scope.scrollToActiveSprint = function(isOpen) {
+        if (isOpen) {
+            var dropdown = angular.element('.sprint-dropdown');
+            var activeSprint = dropdown.find(".dropdown-item.active");
+            var dropdownMenus = dropdown.find('.sprint-dropdown-menus');
+            var activeSprintPosition = dropdownMenus.scrollTop() + activeSprint.offset().top - activeSprint.innerHeight();
+            dropdownMenus.animate({
+                scrollTop: activeSprintPosition - 100
             }, 200);
         }
     };
@@ -250,6 +246,9 @@ extensibleController('taskBoardCtrl', ['$scope', '$state', '$filter', 'UserServi
             return $filter('orderBy')($filter('taskBoardSearch')($filter('filter')($scope.sprint.stories, $scope.storyFilter), $scope.tasksByStoryByState), 'rank'); // Needs to be in a function because it can change
         }
     ]);
+    $scope.openTaskUrl = function(taskId) {
+        return $state.href($scope.viewName + '.task.details', {taskId: taskId});
+    };
     // Init
     $scope.project = project;
     $scope.taskSortableOptions = {
@@ -315,7 +314,14 @@ extensibleController('taskBoardCtrl', ['$scope', '$state', '$filter', 'UserServi
     };
     $scope.sprintFilters = [
         {id: 'allTasks', name: $scope.message('is.ui.sprintPlan.toolbar.filter.allTasks'), filter: {}},
-        {id: 'myTasks', name: $scope.message('is.ui.sprintPlan.toolbar.filter.myTasks'), filter: {responsible: {id: Session.user.id}}},
+        {
+            id: 'myTasks',
+            name: $scope.message('is.ui.sprintPlan.toolbar.filter.myTasks'),
+            filter: function(task) {
+                // Function required because angular filterFilter will match ids 2* (e.g. 23) if provided with id 2
+                return task.responsible && Session.user && task.responsible.id === Session.user.id;
+            }
+        },
         {id: 'freeTasks', name: $scope.message('is.ui.sprintPlan.toolbar.filter.freeTasks'), filter: {responsible: null}},
         {id: 'blockedTasks', name: $scope.message('is.ui.sprintPlan.toolbar.filter.blockedTasks'), filter: {blocked: true}}
     ];

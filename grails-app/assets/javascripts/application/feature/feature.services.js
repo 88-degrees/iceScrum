@@ -25,9 +25,10 @@ services.factory('Feature', ['Resource', function($resource) {
     return $resource('/p/:projectId/feature/:id/:action');
 }]);
 
-services.service("FeatureService", ['$state', '$q', 'Feature', 'Session', 'CacheService', 'PushService', 'IceScrumEventType', 'FormService', function($state, $q, Feature, Session, CacheService, PushService, IceScrumEventType, FormService) {
+services.service("FeatureService", ['$state', '$q', 'Feature', 'Session', 'CacheService', 'PushService', 'IceScrumEventType', 'FormService', 'FeatureStatesByName', function($state, $q, Feature, Session, CacheService, PushService, IceScrumEventType, FormService, FeatureStatesByName) {
     var self = this;
     var crudMethods = {};
+    this.crudMethods = crudMethods; // Access from outside
     crudMethods[IceScrumEventType.CREATE] = function(feature) {
         CacheService.addOrUpdate('feature', feature);
     };
@@ -35,9 +36,12 @@ services.service("FeatureService", ['$state', '$q', 'Feature', 'Session', 'Cache
         CacheService.addOrUpdate('feature', feature);
     };
     crudMethods[IceScrumEventType.DELETE] = function(feature) {
-        if ($state.includes("feature.details", {featureId: feature.id}) ||
-            ($state.includes("feature.multiple") && _.includes($state.params.featureListId.split(','), feature.id.toString()))) {
+        if ($state.includes('feature.details', {featureId: feature.id}) ||
+            ($state.includes('feature.multiple') && _.includes($state.params.featureListId.split(','), feature.id.toString()))) {
             $state.go('feature', {}, {location: 'replace'});
+        } else if ($state.includes('features.details', {featureId: feature.id}) ||
+                   ($state.includes('features.multiple') && _.includes($state.params.featureListId.split(','), feature.id.toString()))) {
+            $state.go('features', {}, {location: 'replace'});
         } else if ($state.includes('roadmap.roadmap.feature', {featureId: feature.id})) {
             $state.go('roadmap.roadmap', {}, {location: 'replace'});
         }
@@ -71,6 +75,11 @@ services.service("FeatureService", ['$state', '$q', 'Feature', 'Session', 'Cache
     };
     this['delete'] = function(feature) {
         return Feature.delete({id: feature.id, projectId: feature.backlog.id}, crudMethods[IceScrumEventType.DELETE]).$promise;
+    };
+    this.updateState = function(feature, state) {
+        var editableFeature = angular.copy(feature);
+        editableFeature.state = state;
+        return self.update(editableFeature, true);
     };
     this.getMultiple = function(ids, projectId) {
         ids = _.map(ids, function(id) {
@@ -106,22 +115,37 @@ services.service("FeatureService", ['$state', '$q', 'Feature', 'Session', 'Cache
             });
         }).$promise;
     };
+    this.updateStateMultiple = function(ids, state, projectId) {
+        return self.updateMultiple(ids, {state: state}, projectId);
+    };
     this.rankMultiple = function(ids, rank, projectId) {
         return Feature.updateArray({projectId: projectId, id: ids, rank: rank, action: 'rank'}, {}, function(features) {
             _.each(features, crudMethods[IceScrumEventType.UPDATE]);
         }).$promise;
     };
-    this.authorizedFeature = function(action, project) {
+    this.authorizedFeature = function(action, feature, project) {
         switch (action) {
             case 'create':
             case 'upload':
             case 'update':
             case 'delete':
                 return Session.po();
+            case 'markDone':
+                return Session.po() && feature && feature.state === FeatureStatesByName.IN_PROGRESS;
+            case 'markInProgress':
+                return Session.po() && feature && feature.state === FeatureStatesByName.DONE;
             case 'rank':
                 return (project && project.portfolio) ? Session.bo() : Session.po();
             default:
                 return false;
+        }
+    };
+    this.authorizedFeatures = function(action, features, project) {
+        switch (action) {
+            default:
+                return _.every(features, function(feature) {
+                    return self.authorizedFeature(action, feature, project);
+                });
         }
     };
     this.getAvailableColors = function(projectId) {

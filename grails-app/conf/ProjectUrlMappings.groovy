@@ -69,6 +69,22 @@ class ProjectUrlMappings {
                 project(matches: /[0-9A-Z]*/)
             }
         }
+        // Hook
+        "/p/$project/hook" {
+            controller = 'hook'
+            action = [POST: "save"]
+            constraints {
+                project(matches: /[0-9A-Z]*/)
+            }
+        }
+        "/p/$project/hook/$id" {
+            controller = 'hook'
+            action = [GET: "show", PUT: "update", DELETE: 'delete', POST: 'update']
+            constraints {
+                project(matches: /[0-9A-Z]*/)
+                id(matches: /\d*/)
+            }
+        }
         // Tags
         "/p/$project/tag" {
             controller = 'tag'
@@ -81,6 +97,13 @@ class ProjectUrlMappings {
         "/p/$project/task" {
             controller = 'task'
             action = [POST: "save"]
+            constraints {
+                project(matches: /[0-9A-Z]*/)
+            }
+        }
+        "/p/$project/task/daily" {
+            controller = 'task'
+            action = [GET: "daily"]
             constraints {
                 project(matches: /[0-9A-Z]*/)
             }
@@ -243,26 +266,6 @@ class ProjectUrlMappings {
                 fluxiableId(matches: /\d*/)
             }
         }
-        // Comment
-        "/p/$project/comment/$type/$commentable" {
-            controller = 'comment'
-            action = [GET: "index", POST: "save"]
-            constraints {
-                project(matches: /[0-9A-Z]*/)
-                type(inList: ['story', 'task'])
-                commentable(matches: /\d*/)
-            }
-        }
-        "/p/$project/comment/$type/$commentable/$id" {
-            controller = 'comment'
-            action = [GET: "show", PUT: "update", DELETE: "delete", POST: 'update']
-            constraints {
-                project(matches: /[0-9A-Z]*/)
-                type(inList: ['story', 'task'])
-                id(matches: /\d*/)
-                commentable(matches: /\d*/)
-            }
-        }
         // Acceptance test
         "/p/$project/acceptanceTest/story/$parentStory" {
             controller = 'acceptanceTest'
@@ -413,6 +416,14 @@ class ProjectUrlMappings {
             constraints {
                 project(matches: /[0-9A-Z]*/)
                 id(matches: /\d+/)
+            }
+        }
+        "/p/$project/clientOauth/$providerId" {
+            controller = 'clientOauth'
+            action = [GET: 'show', PUT: 'save', POST: 'save', DELETE: 'delete']
+            constraints {
+                providerId(matches: /[0-9A-Za-z]*/)
+                project(matches: /[0-9A-Z]*/)
             }
         }
     }

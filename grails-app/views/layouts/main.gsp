@@ -37,28 +37,28 @@
         <asset:link rel="mask-icon" href="browser/safari-pinned-tab.svg" color="#FFCC04"/>
         <asset:link rel="shortcut icon" href="favicon.ico" type="image/x-icon"/>
         <meta name="theme-color" content="#ffffff">
-        <asset:stylesheet href="application.css"/>
+        <asset:javascript src="preload-header.js"/>
+        <script type="text/javascript">
+            isSettings.darkMode = '${asset.stylesheet(href:"application-dark.css", id:"main-css", bundle:"true")}';
+            isSettings.lightMode = '${asset.stylesheet(href:"application.css", id:"main-css", bundle:"true")}';
+            darkOrLightMode(${colorScheme ? "'$colorScheme'" : null });
+        </script>
+        <g:include controller="scrumOS" action="isSettings" params="${params}"/>
+        <entry:point id="icescrum-header" model="[workspace: workspace, user: user]"/>
         <g:layoutHead/>
     </head>
+
     <body ng-controller="applicationCtrl"
           flow-prevent-drop=""
           fullscreen="application.isFullScreen"
-          ng-class="{ 'mobile':application.mobile, 'mobile-xs':application.mobilexs, 'application-ready':application != null, 'loading': (application.loading || application.loadingText), 'splash-screen': (application.loadingPercent != 100 || application.loadingText)}"
-          class="splash-screen loading ${workspace?.name ? 'workspace-' + workspace.name : ''}">
-        <div id="application-loading">
-            <svg class="logo" viewBox="0 0 150 150">
-                <g:render template="/scrumOS/logo"/>
-                <circle fill="none" cx="80px" cy="80px" r="63" style="stroke: #eee; stroke-width: 10px;"></circle>
-                <path fill="none" transform="" circle-coords="80,80,63,0" circle="application.loadingPercent"
-                      class="loading-circle"></path>
-            </svg>
-            <div class="loading-text text-center">{{ application.loadingText }}</div>
-        </div>
+          ng-class="{'application-ready':application != null, 'loading': (application.loading || application.loadingText), 'splash-screen': (application.loadingPercent != 100 || application.loadingText)}"
+          class="splash-screen loading ${workspace?.name ? 'workspace-' + workspace.name : ''} ${bodyClasses ?: ''}">
+        <g:include view="layouts/_splashScreen.gsp"/>
         <is:header/>
-        <div class="container-fluid main" ui-view>
+        <div class="is-container-fluid main" ui-view>
             <g:layoutBody/>
         </div>
-        <g:include controller="scrumOS" action="isSettings" params="${params}"/>
+        <asset:javascript src="preload-footer.js"/>
         <asset:javascript src="application.js"/>
         <g:render template="/scrumOS/templates"/>
         <entry:point id="icescrum-footer" model="[workspace: workspace, user: user]"/>

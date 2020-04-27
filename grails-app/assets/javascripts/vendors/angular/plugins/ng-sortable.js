@@ -39,7 +39,6 @@
             hiddenClass: 'as-sortable-hidden',
             dragging: 'as-sortable-dragging',
             throttle: 50,
-            elementsOver: [],
             elementsBounding: []
         });
 }());
@@ -75,7 +74,7 @@
 
                 boundingClient: function(element) {
                     if (!element._bounding) {
-                        if (sortableConfig.elementsBounding.length > 0 && element.className.indexOf("postit") >= 0 && sortableConfig.elementsBounding[0].className.indexOf("postit") >= 0) {
+                        if (sortableConfig.elementsBounding.length > 0 && element.className.indexOf("sticky-note") >= 0 && sortableConfig.elementsBounding[0].className.indexOf("sticky-note") >= 0) {
                             element._bounding = sortableConfig.elementsBounding[0]._bounding;
                         } else {
                             element._bounding = element.getBoundingClientRect();
@@ -496,7 +495,6 @@
 
                     element.on('mouseenter', _.throttle(function() {
                         if ($rootScope.application.dragging) {
-                            sortableConfig.elementsOver.push(element);
                             element.addClass('sortable-container-over');
                         }
                     }, sortableConfig.throttle));
@@ -695,7 +693,7 @@
                         // END CUSTOM
                         isLongTouch = false; //long touch disabled.
 
-                    hasTouch = 'ontouchstart' in $window;
+                    hasTouch = 'ontouchstart' in $window && !isSettings.isMobile; //disable for touch at the moment
                     isIOS = /iPad|iPhone|iPod/.test($window.navigator.userAgent) && !$window.MSStream;
 
                     if (sortableConfig.handleClass) {
@@ -858,8 +856,7 @@
                         if (scope.itemScope.sortableScope.cloning) {
                             // clone option is enabled or triggered, so clone the element.
                             dragElement.append(scope.itemScope.element.clone());
-                        }
-                        else {
+                        } else {
                             // add hidden placeholder element in original position.
                             scope.itemScope.element.addClass('as-sortable-dragging-item');
                             scope.itemScope.element.after(placeElement);
@@ -1367,7 +1364,8 @@
                             var x = e.pageX - offset.left;
                             var y = e.pageY - offset.top;
                             $helper.cleanStyles();
-                            element.addClass('sortable-item-over sortable-item-over-' + (x > ((offset.width / 2) || y > (offset.height / 2)) ? 'right' : 'left'));
+                            var position = x > (offset.width / 2) || y > (offset.height / 2) ? 'right' : 'left';
+                            element.addClass('sortable-item-over sortable-item-over-' + position);
                         }
                     }, sortableConfig.throttle));
                     element.on('mouseleave', _.throttle(function() {

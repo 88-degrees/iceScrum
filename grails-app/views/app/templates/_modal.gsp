@@ -1,5 +1,5 @@
 %{--
-- Copyright (c) 2017 Kagilum.
+- Copyright (c) 2019 Kagilum.
 -
 - This file is part of iceScrum.
 -
@@ -23,51 +23,38 @@
 
 <script type="text/ng-template" id="apps.modal.html">
 <is:modal title="${message(code: 'is.ui.apps')}"
-          class="apps-modal split-modal">
-    <div class="row" ng-class="{'hide-left-panel': !appDefinition}">
-        <div class="left-panel">
-            <div class="left-panel-header">
-                <div class="input-group">
-                    <input type="text"
-                           ng-model="holder.appSearch"
-                           name="app-search-input"
-                           value="{{ holder.appSearch }}"
-                           class="form-control"
-                           placeholder="${message(code: 'todo.is.ui.search.action')}">
-                    <span class="input-group-btn">
-                        <button class="btn btn-default"
-                                type="button"
-                                ng-click="searchApp('')">
-                            <i class="fa" ng-class="holder.appSearch ? 'fa-times' : 'fa-search'"></i>
-                        </button>
-                    </span>
-                </div>
+          footer="${false}"
+          class="modal-split app-modal">
+    <div class="row app-split" ng-if="appDefinition">
+        <div class="col-sm-3 modal-split-left">
+            <div class="modal-split-search">
+                <input type="text"
+                       ng-model="holder.appSearch"
+                       value="{{ holder.appSearch }}"
+                       class="form-control search-input"
+                       placeholder="${message(code: 'todo.is.ui.search.action')}">
             </div>
-            <ul class="left-panel-body nav nav-list">
+            <ul class="nav nav-pills flex-column">
                 <div class="text-center more-results" ng-hide="filteredApps.length">
                     <a href="${message(code: 'is.ui.apps.store.query')}{{ holder.appSearch }}">${message(code: 'is.ui.apps.store.search')}</a>
                 </div>
-                <li ng-class="{'current': currentAppDefinition == appDefinition}"
+                <li class="nav-item app-nav-item"
                     ng-repeat="currentAppDefinition in filteredApps = (appDefinitions | filter:appDefinitionFilter | orderBy: appsOrder)">
-                    <a ng-click="openAppDefinition(currentAppDefinition)" href class="text-ellipsis">
+                    <a ng-click="openAppDefinition(currentAppDefinition)"
+                       ng-class="{'active': currentAppDefinition == appDefinition}"
+                       href
+                       class="nav-link text-truncate app-{{:: currentAppDefinition.id}}">
+                        <div class="app-enabled" ng-if="currentAppDefinition != appDefinition && isEnabledApp(currentAppDefinition)" title="${message(code: 'is.ui.apps.enabled')}"></div>
                         {{:: currentAppDefinition.name }}
-                        <i ng-if="isEnabledApp(currentAppDefinition)" class="fa fa-check text-success"></i>
+                        <div class="app-new" ng-if="currentAppDefinition != appDefinition && currentAppDefinition.isNew && !isEnabledApp(currentAppDefinition)">${message(code: 'is.ui.apps.new')}</div>
                     </a>
-                    <div class="ribbon">
-                        <div class="new-app" ng-if="currentAppDefinition.isNew && !isEnabledApp(currentAppDefinition)">${message(code: 'is.ui.apps.new')}</div>
-                        <div class="enabled-app" ng-if="isEnabledApp(currentAppDefinition)">${message(code: 'is.ui.apps.enabled')}</div>
-                    </div>
                 </li>
             </ul>
         </div>
-        <div class="right-panel">
-            <div ng-if="appDefinition" class="app-details">
-                <div ng-include="'app.details.html'"></div>
-            </div>
-            <div ng-if="!appDefinition">
-                <div ng-include="'app.list.html'"></div>
-            </div>
+        <div class="col-sm-9 modal-split-right app-details">
+            <div ng-include="'app.details.html'" class="d-flex flex-column justify-content-between h-100"></div>
         </div>
     </div>
+    <div class="row app-full" ng-if="!appDefinition" ng-include="'app.list.html'"></div>
 </is:modal>
 </script>

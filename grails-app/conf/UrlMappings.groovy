@@ -60,28 +60,31 @@ class UrlMappings {
             }
         }
         // Permalinks
-        "/$project-F$uid/" {
+        "/$project-F$uid/$tab?" {
             controller = 'feature'
             action = 'permalink'
             constraints {
                 project(matches: /[0-9A-Z]*/)
                 uid(matches: /[0-9]*/)
+                tab(inList: ['activities', 'comments', 'stories'])
             }
         }
-        "/$project-T$uid/" {
+        "/$project-T$uid/$tab?" {
             controller = 'task'
             action = 'permalink'
             constraints {
                 project(matches: /[0-9A-Z]*/)
                 uid(matches: /[0-9]*/)
+                tab(inList: ['activities', 'comments'])
             }
         }
-        "/$project-$uid/" {
+        "/$project-$uid/$tab?" {
             controller = 'story'
             action = 'permalink'
             constraints {
                 project(matches: /[0-9A-Z]*/)
                 uid(matches: /[0-9]*/)
+                tab(inList: ['tasks', 'tests', 'comments', 'activities'])
             }
         }
         // Legacy permalinks
@@ -151,6 +154,13 @@ class UrlMappings {
         "/user" {
             controller = 'user'
             action = [GET: "index", POST: "save"]
+        }
+        "/user/register/$token?" {
+            controller = 'user'
+            action = [GET: "register", POST: "save"]
+            constraints {
+                token(matches: /[0-9a-z]*/)
+            }
         }
         "/user/retrieve" {
             controller = 'user'
@@ -352,35 +362,6 @@ class UrlMappings {
                 project(matches: /[0-9A-Z]*/)
             }
         }
-        // Attachment
-        "/p/$project/attachment/$type/$attachmentable/flow" {
-            controller = 'attachment'
-            action = [GET: "save", POST: "save"]
-            constraints {
-                project(matches: /[0-9A-Z]*/)
-                attachmentable(matches: /\d*/)
-                type(inList: ['story', 'task', 'feature', 'release', 'sprint', 'project'])
-            }
-        }
-        "/p/$project/attachment/$type/$attachmentable" {
-            controller = 'attachment'
-            action = [GET: "index", POST: "save"]
-            constraints {
-                project(matches: /[0-9A-Z]*/)
-                attachmentable(matches: /\d*/)
-                type(inList: ['story', 'task', 'feature', 'release', 'sprint', 'project'])
-            }
-        }
-        "/p/$project/attachment/$type/$attachmentable/$id" {
-            controller = 'attachment'
-            action = [GET: "show", POST: "update", DELETE: "delete"]
-            constraints {
-                project(matches: /[0-9A-Z]*/)
-                attachmentable(matches: /\d*/)
-                id(matches: /\d*/)
-                type(inList: ['story', 'task', 'feature', 'release', 'sprint', 'project'])
-            }
-        }
         // Team
         "/team" {
             controller = 'team'
@@ -431,6 +412,32 @@ class UrlMappings {
                 portfolio(matches: /\d*/)
                 property(inList: ['name', 'fkey'])
             }
+        }
+        "/hook" {
+            controller = 'hook'
+            action = [GET: "index", POST: "save"]
+        }
+        "/hook/$id" {
+            controller = 'hook'
+            action = [GET: "show", PUT: "update", DELETE: 'delete', POST: 'update']
+            constraints {
+                id(matches: /\d+(,\d+)*/)
+            }
+        }
+        "/clientOauth/token/$providerId" {
+            controller = 'clientOauth'
+            action = [POST: 'token']
+            constraints {
+                providerId(matches: /[0-9A-Za-z]*/)
+            }
+        }
+        "/clientOauth/redirectUri" {
+            controller = 'clientOauth'
+            action = [GET: 'redirectUri']
+        }
+        "/clientOauth/refresh" {
+            controller = 'clientOauth'
+            action = [GET: 'refresh']
         }
         // Errors mapping
         "401"(controller: "errors", action: "error401")

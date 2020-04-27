@@ -1,3 +1,5 @@
+import org.icescrum.core.domain.WorkspaceType
+
 /*
  * Copyright (c) 2012 Kagilum.
  *
@@ -30,14 +32,25 @@ class RestUrlMappings {
             action = [GET: 'version']
             controller = 'scrumOS'
         }
+        "/ws/textile" {
+            action = [POST: 'textileParser']
+            controller = 'scrumOS'
+        }
         // User
         "/ws/user" { // Admin
             controller = 'user'
             action = [GET: 'index', POST: 'save']
         }
-        "/ws/user/$id" { // Admin
+        "/ws/user/$id" {
             controller = 'user'
             action = [GET: 'show', PUT: 'update', POST: 'update']
+            constraints {
+                id(matches: /\d*/)
+            }
+        }
+        "/ws/user/$id/activities" {
+            controller = 'user'
+            action = [GET: 'activities']
             constraints {
                 id(matches: /\d*/)
             }
@@ -79,6 +92,10 @@ class RestUrlMappings {
             controller = 'project'
             action = [GET: 'index', POST: 'save']
         }
+        "/ws/createSample" {
+            action = [POST: 'createSample']
+            controller = 'project'
+        }
         // (token must be admin if $id != currentUser.id // id can be string or int
         "/ws/project/user/$id?" {
             controller = 'project'
@@ -111,48 +128,116 @@ class RestUrlMappings {
             }
             method = 'GET'
         }
+        "/ws/project/$project/$action" {
+            controller = 'project'
+            constraints {
+                action(inList: ['flowCumulative', 'velocityCapacity', 'velocity', 'parkingLot', 'burndown', 'burnup'])
+            }
+        }
         // Resources
         "/ws/project/$project/$controller" {
             action = [GET: 'index', POST: 'save']
             constraints {
                 project(matches: /[0-9A-Z]*/)
-                controller(inList: ['story', 'acceptanceTest', 'feature', 'backlog', 'actor', 'task', 'release', 'sprint', 'timeBoxNotesTemplate'])
+                controller(inList: ['hook', 'story', 'acceptanceTest', 'feature', 'backlog', 'actor', 'task', 'release', 'sprint', 'timeBoxNotesTemplate'])
             }
         }
         "/ws/project/$project/$controller/$id" {
             action = [GET: 'show', PUT: 'update', POST: 'update', DELETE: 'delete']
             constraints {
                 project(matches: /[0-9A-Z]*/)
-                controller(inList: ['story', 'acceptanceTest', 'feature', 'backlog', 'actor', 'task', 'release', 'sprint', 'timeBoxNotesTemplate'])
+                controller(inList: ['hook', 'story', 'acceptanceTest', 'feature', 'backlog', 'actor', 'task', 'release', 'sprint', 'timeBoxNotesTemplate'])
                 id(matches: /\d*/)
+            }
+        }
+        "/ws/project/$project/$controller/uid/$uid" {
+            action = [GET: 'uid']
+            constraints {
+                project(matches: /[0-9A-Z]*/)
+                controller(inList: ['story', 'acceptanceTest', 'feature', 'actor', 'task'])
+                uid(matches: /\d*/)
+            }
+        }
+        // Activities
+        "/ws/project/$project/activity/$type/$fluxiableId" {
+            controller = 'activity'
+            action = [GET: "index"]
+            constraints {
+                project(matches: /[0-9A-Z]*/)
+                type(inList: ['story', 'task', 'feature'])
+                fluxiableId(matches: /\d*/)
+            }
+        }
+        "/ws/project/$project/activities" {
+            controller = 'project'
+            action = [GET: "activities"]
+            constraints {
+                project(matches: /[0-9A-Z]*/)
             }
         }
         // Comments
-        "/ws/project/$project/comment/$type" {
+        "/ws/$workspaceType/$workspace/comment/$type" {
             controller = 'comment'
             action = [GET: 'index']
             constraints {
-                project(matches: /[0-9A-Z]*/)
-                type(inList: ['story', 'task'])
+                workspaceType(inList: [WorkspaceType.PROJECT, WorkspaceType.PORTFOLIO])
+                workspace(matches: /[0-9A-Z]*/)
+                type(inList: ['story', 'task', 'feature'])
             }
         }
-        "/ws/project/$project/comment/$type/$commentable" {
+        "/ws/$workspaceType/$workspace/comment/$type/$commentable" {
             controller = 'comment'
-            action = [GET: 'index', POST: 'save']
+            action = [GET: 'index']
             constraints {
-                project(matches: /[0-9A-Z]*/)
-                type(inList: ['story', 'task'])
+                workspaceType(inList: [WorkspaceType.PROJECT, WorkspaceType.PORTFOLIO])
+                workspace(matches: /[0-9A-Z]*/)
+                type(inList: ['story', 'task', 'feature'])
                 commentable(matches: /\d*/)
             }
         }
-        "/ws/project/$project/comment/$type/$commentable/$id" {
+        "/ws/$workspaceType/$workspace/comment" {
+            controller = 'comment'
+            action = [POST: 'save']
+            constraints {
+                workspaceType(inList: [WorkspaceType.PROJECT, WorkspaceType.PORTFOLIO])
+                workspace(matches: /[0-9A-Z]*/)
+            }
+        }
+        "/ws/$workspaceType/$workspace/comment/$id" {
             controller = 'comment'
             action = [GET: 'show', PUT: 'update', POST: 'update', DELETE: 'delete']
             constraints {
-                project(matches: /[0-9A-Z]*/)
-                type(inList: ['story', 'task'])
+                workspaceType(inList: [WorkspaceType.PROJECT, WorkspaceType.PORTFOLIO])
+                workspace(matches: /[0-9A-Z]*/)
                 id(matches: /\d*/)
-                commentable(matches: /\d*/)
+            }
+        }
+        // Meetings
+        "/ws/$workspaceType/$workspace/meeting/$subjectType?/$subjectId?" {
+            controller = 'meeting'
+            action = [GET: 'index']
+            constraints {
+                workspaceType(inList: [WorkspaceType.PROJECT, WorkspaceType.PORTFOLIO])
+                workspace(matches: /[0-9A-Z]*/)
+                subjectType(inList: ['story', 'task', 'feature'])
+                subjectId(matches: /\d*/)
+            }
+        }
+        "/ws/$workspaceType/$workspace/meeting" {
+            controller = 'meeting'
+            action = [POST: 'save']
+            constraints {
+                workspaceType(inList: [WorkspaceType.PROJECT, WorkspaceType.PORTFOLIO])
+                workspace(matches: /[0-9A-Z]*/)
+            }
+        }
+        "/ws/$workspaceType/$workspace/meeting/$id" {
+            controller = 'meeting'
+            action = [GET: 'show', PUT: 'update', POST: 'update', DELETE: 'delete']
+            constraints {
+                workspaceType(inList: [WorkspaceType.PROJECT, WorkspaceType.PORTFOLIO])
+                workspace(matches: /[0-9A-Z]*/)
+                id(matches: /\d*/)
             }
         }
         // Story nested actions
@@ -164,15 +249,6 @@ class RestUrlMappings {
                 action(inList: ['accept', 'returnToSandbox', 'turnIntoFeature', 'turnIntoTask', 'copy', 'plan', 'unPlan', 'shiftToNextSprint', 'done', 'unDone'])
             }
             method = 'POST'
-        }
-        "/ws/project/$project/story/$id/$action" {
-            controller = 'story'
-            constraints {
-                project(matches: /[0-9A-Z]*/)
-                id(matches: /\d*/)
-                action(inList: ['activities'])
-            }
-            method = 'GET'
         }
         // Story filter by backlog / actor / sprint / feature
         "/ws/project/$project/story/$type/$typeId" {
@@ -224,15 +300,6 @@ class RestUrlMappings {
             constraints {
                 project(matches: /[0-9A-Z]*/)
                 action(inList: ['print'])
-            }
-            method = 'GET'
-        }
-        "/ws/project/$project/feature/$id/$action" {
-            controller = 'feature'
-            constraints {
-                project(matches: /[0-9A-Z]*/)
-                id(matches: /\d*/)
-                action(inList: ['activities'])
             }
             method = 'GET'
         }
@@ -347,14 +414,29 @@ class RestUrlMappings {
         }
         // Portfolio
         "/ws/portfolio" {
-            controller = 'portfolio'
             action = [GET: 'index', POST: 'save']
+            constraints {
+                controller(inList: ['hook', 'portfolio'])
+            }
         }
-        "/ws/portfolio/$portfolio" {
-            controller = 'portfolio'
+        "/ws/portfolio/$portfolio/$controller/$id?" {
             action = [GET: 'show', PUT: 'update', POST: 'update', DELETE: 'delete']
             constraints {
                 portfolio(matches: /[0-9A-Z]*/)
+                controller(inList: ['hook', 'portfolio'])
+                id(matches: /\d*/)
+            }
+        }
+        // Hook
+        "/ws/hook" {
+            controller = 'hook'
+            action = [GET: "index", POST: "save"]
+        }
+        "/ws/hook/$id" {
+            controller = 'hook'
+            action = [GET: "show", PUT: "update", DELETE: 'delete', POST: 'update']
+            constraints {
+                id(matches: /\d+(,\d+)*/)
             }
         }
     }

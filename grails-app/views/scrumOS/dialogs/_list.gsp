@@ -24,40 +24,34 @@
 <is:modal title="${message(code: 'is.ui.workspaces')}"
           form="openWorkspace(workspace)"
           submitButton="${message(code: 'todo.is.ui.open')}"
-          class="split-modal">
+          class="modal-split">
     <div class="row">
-        <div class="left-panel col-sm-3">
-            <div class="left-panel-header">
-                <div class="input-group">
-                    <input type="text"
-                           ng-model="workspaceSearch"
-                           ng-change="searchWorkspaces()"
-                           ng-model-options="{debounce: 300}"
-                           class="form-control"
-                           placeholder="${message(code: 'todo.is.ui.search.action')}">
-                    <span class="input-group-btn">
-                        <button class="btn btn-default"
-                                type="button"
-                                ng-click="workspaceSearch = null; searchWorkspaces()">
-                            <i class="fa" ng-class="workspaceSearch ? 'fa-times' : 'fa-search'"></i>
-                        </button>
-                    </span>
-                </div>
+        <div class="col-sm-3 modal-split-left">
+            <div class="modal-split-search">
+                <input type="text"
+                       ng-model="workspaceSearch"
+                       ng-change="searchWorkspaces()"
+                       ng-model-options="{debounce: 300}"
+                       class="form-control search-input"
+                       placeholder="${message(code: 'todo.is.ui.search.action')}">
             </div>
-            <ul class="left-panel-body nav nav-list">
-                <li ng-class="{'current': currentWorkspace.id == workspace.id && currentWorkspace.class == workspace.class}" ng-repeat="currentWorkspace in workspaces">
-                    <a ng-click="selectWorkspace(currentWorkspace)" href>
+            <ul class="nav nav-pills flex-column">
+                <li class="nav-item"
+                    ng-repeat="currentWorkspace in workspaces">
+                    <a class="nav-link"
+                       ng-class="{'active': currentWorkspace.id == workspace.id && currentWorkspace.class == workspace.class}"
+                       ng-click="selectWorkspace(currentWorkspace)" href>
                         <i ng-if="currentWorkspace.pkey && !currentWorkspace.preferences.hidden" class="fa fa-eye"></i>
-                        <i class="fa" ng-class="['fa', {'fa-folder': currentWorkspace.pkey, 'fa-briefcase': currentWorkspace.fkey}]"></i>
+                        <i class="workspace-icon" ng-class="{'icon-project': currentWorkspace.pkey, 'icon-portfolio': currentWorkspace.fkey}"></i>
                         {{ currentWorkspace.name }}
                     </a>
                 </li>
             </ul>
-            <div class="left-panel-bottom">
+            <div class="modal-split-pagination">
                 <div uib-pagination
                      boundary-links="true"
                      previous-text="&lsaquo;" next-text="&rsaquo;" first-text="&laquo;" last-text="&raquo;"
-                     class="pagination-sm"
+                     class="pagination-sm justify-content-center mt-2"
                      max-size="3"
                      total-items="workspaceCount"
                      items-per-page="workspacesPerPage"
@@ -66,7 +60,7 @@
                 </div>
             </div>
         </div>
-        <div class="right-panel col-sm-9" ng-switch="workspaces != undefined && workspaces.length == 0 && summary">
+        <div class="col-sm-9 modal-split-right" ng-switch="workspaces != undefined && workspaces.length == 0 && summary">
             <div ng-switch-when="true">
                 ${message(code: 'todo.is.ui.project.noproject')}
             </div>

@@ -21,42 +21,60 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 
-<is:modal title="${message(code: 'is.ui.portfolio.edit')}" class="wizard split-modal" footer="${false}">
-    <div class="row wizard-row">
-        <div class="left-panel col-xs-12 col-sm-3">
-            <ul class="left-panel-body nav nav-list">
-                <li ng-if="authorizedPortfolio('update', currentPortfolio)" ng-class="{ current: isCurrentPanel('general') }">
-                    <a ng-click="setCurrentPanel('general')"><i class="fa fa-pencil"></i> <span class="hidden-xs hidden-sm">${message(code: 'is.dialog.wizard.section.portfolio')}</span></a>
+<is:modal title="${message(code: 'is.ui.portfolio.edit')}" class="modal-split" footer="${false}">
+    <div class="row">
+        <div class="col-sm-3 modal-split-left">
+            <ul class="nav nav-pills flex-column">
+                <li class="nav-item"
+                    ng-if="authorizedPortfolio('update', currentPortfolio)">
+                    <a class="nav-link"
+                       href
+                       ng-click="setCurrentPanel('general')"
+                       ng-class="{ active: isCurrentPanel('general') }">
+                        ${message(code: 'is.dialog.wizard.section.portfolio')}
+                    </a>
                 </li>
-                <li ng-class="{ current: isCurrentPanel('projects') }">
-                    <a ng-click="setCurrentPanel('projects')"><i class="fa fa-folder"></i> <span class="hidden-xs hidden-sm">${message(code: 'is.dialog.wizard.section.portfolio.projects')}</span></a>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       href
+                       ng-click="setCurrentPanel('projects')"
+                       ng-class="{ active: isCurrentPanel('projects') }">
+                        ${message(code: 'is.dialog.wizard.section.portfolio.projects')}
+                    </a>
                 </li>
-                <li ng-class="{ current: isCurrentPanel('members') }">
-                    <a ng-click="setCurrentPanel('members')"><i class="fa fa-users"></i> <span class="hidden-xs hidden-sm">${message(code: 'is.dialog.wizard.section.portfolio.members')}</span></a>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       href
+                       ng-click="setCurrentPanel('members')"
+                       ng-class="{ active: isCurrentPanel('members') }">
+                        ${message(code: 'is.dialog.wizard.section.portfolio.members')}
+                    </a>
                 </li>
-                <li ng-if="authorizedPortfolio('update', currentPortfolio)" ng-class="{ current: isCurrentPanel('administration') }">
-                    <a ng-click="setCurrentPanel('administration')"><i class="fa fa-cogs"></i> <span class="hidden-xs hidden-sm">${message(code: 'is.ui.administration')}</span></a>
+                <li class="nav-item"
+                    ng-if="authorizedPortfolio('update', currentPortfolio)">
+                    <a class="nav-link"
+                       href
+                       ng-click="setCurrentPanel('administration')"
+                       ng-class="{ active: isCurrentPanel('administration') }">
+                        ${message(code: 'is.ui.administration')}
+                    </a>
                 </li>
             </ul>
         </div>
-        <div class="right-panel steps col-xs-12 col-sm-9" ng-switch="getCurrentPanel()">
+        <div class="col-sm-9 modal-split-right" ng-switch="getCurrentPanel()">
             <section ng-switch-when="general"
-                     class="step current"
                      title="${message(code: 'is.dialog.wizard.section.portfolio')}">
                 <div ng-include="'edit.general.portfolio.html'"></div>
             </section>
             <section ng-switch-when="projects"
-                     class="step current"
                      title="${message(code: 'is.dialog.wizard.section.portfolio.projects')}">
                 <div ng-include="'edit.projects.portfolio.html'"></div>
             </section>
             <section ng-switch-when="members"
-                     class="step current"
                      title="${message(code: 'is.dialog.wizard.section.portfolio.members')}">
                 <div ng-include="'edit.members.portfolio.html'"></div>
             </section>
             <section ng-switch-when="administration"
-                     class="step current"
                      title="${message(code: 'is.ui.danger.zone')}">
                 <div ng-include="'edit.administration.portfolio.html'"></div>
             </section>

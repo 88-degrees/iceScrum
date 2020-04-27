@@ -24,15 +24,11 @@
 
 //= encoding          UTF-8
 
-//= require           vendors/jquery/jquery-3.1.1.min
-//= require           vendors/jquery/jquery-migrate-1.4.1.min
 //= require_full_tree vendors/jquery
 
 //= require_full_tree vendors/vanilla
 
-//= require           vendors/bootstrap/bootstrap.min
-//= require           vendors/bootstrap/bootstrap.offcanvas.min
-//= require           vendors/bootstrap/bootstrap-slider.min
+//= require           vendors/bootstrap/bootstrap.bundle.min
 
 //= require           vendors/angular/angular.min
 //= require           vendors/angular/angular-route.min

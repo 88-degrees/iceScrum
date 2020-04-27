@@ -22,7 +22,7 @@
  *
  */
 
-controllers.controller('dashboardCtrl', ['$scope', '$location', '$state', '$q', 'window', 'Session', 'ProjectService', 'ReleaseService', 'SprintService', 'AttachmentService', 'FeatureService', 'StoryService', 'TaskService', 'project', '$controller', function($scope, $location, $state, $q, window, Session, ProjectService, ReleaseService, SprintService, AttachmentService, FeatureService, StoryService, TaskService, project, $controller) {
+controllers.controller('dashboardCtrl', ['$scope', '$location', '$state', '$q', 'window', 'Session', 'ProjectService', 'ReleaseService', 'SprintService', 'AttachmentService', 'FeatureService', 'StoryService', 'TaskService', 'WorkspaceType', 'project', '$controller', function($scope, $location, $state, $q, window, Session, ProjectService, ReleaseService, SprintService, AttachmentService, FeatureService, StoryService, TaskService, WorkspaceType, project, $controller) {
     $controller('windowCtrl', {$scope: $scope, window: window}); // inherit from windowCtrl
     $scope.authorizedProject = ProjectService.authorizedProject;
     $scope.authorizedRelease = ReleaseService.authorizedRelease;
@@ -38,8 +38,8 @@ controllers.controller('dashboardCtrl', ['$scope', '$location', '$state', '$q', 
         }
         return $state.href(stateName, {sprintId: sprint.id, releaseId: sprint.parentRelease.id});
     };
-    $scope.showMore = function() {
-        $scope.pref.showMore = true;
+    $scope.showMore = function(listName) {
+        $scope.pref.showMore[listName] = true;
     };
     $scope.openFromId = function(activity) {
         if (activity.parentType == 'story') {
@@ -49,8 +49,16 @@ controllers.controller('dashboardCtrl', ['$scope', '$location', '$state', '$q', 
         }
     };
     // Init
+    $scope.dashboardChartOptions = {
+        title: {
+            enable: false
+        }
+    };
     $scope.pref = {
-        showMore: false
+        showMore: {
+            attachments: false,
+            activities: false
+        }
     };
     $scope.release = {};
     $scope.activities = [];
@@ -64,7 +72,7 @@ controllers.controller('dashboardCtrl', ['$scope', '$location', '$state', '$q', 
     }, function(newAllMembers) {
         $scope.allMembers = newAllMembers;
     }, true);
-    $controller('attachmentCtrl', {$scope: $scope, attachmentable: project, clazz: 'project', project: project});
+    $controller('attachmentCtrl', {$scope: $scope, attachmentable: project, clazz: 'project', workspace: project, workspaceType: WorkspaceType.PROJECT});
     ProjectService.getActivities($scope.project).then(function(activities) {
         $scope.activities = activities;
     });
@@ -95,7 +103,7 @@ controllers.controller('dashboardCtrl', ['$scope', '$location', '$state', '$q', 
         }
         $scope.userChart = userChart;
     });
-    AttachmentService.list($scope.project, $scope.project.id);
+    AttachmentService.list($scope.project, $scope.project.id, WorkspaceType.PROJECT);
     if (isSettings.showAppStore) {
         isSettings.showAppStore = false;
         $scope.showAppsModal();

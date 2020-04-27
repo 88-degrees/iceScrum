@@ -27,7 +27,7 @@
           submitButton="${message(code: 'default.button.create.label')}"
           closeButton="${message(code: 'is.button.cancel')}"
           title="${message(code: 'todo.is.ui.timeBoxNotesTemplate.new')}">
-    <div class="panel-body">
+    <div class="card-body">
         <div class="form-group">
             <label for="name">${message(code: 'todo.is.ui.timeBoxNotesTemplate.name')}</label>
             <input required
@@ -35,6 +35,7 @@
                    ng-maxlength="255"
                    ng-model="timeBoxNotesTemplate.name"
                    type="text"
+                   autocomplete="off"
                    class="form-control"/>
         </div>
         <div class="form-group">
@@ -48,24 +49,24 @@
         <hr/>
         <label for="header">${message(code: 'todo.is.ui.timeBoxNotesTemplate.sections')}</label>
         <div as-sortable="sectionSortOptions" ng-model="timeBoxNotesTemplate.configs">
-            <div class="panel panel-light"
+            <div class="card"
                  ng-repeat="config in timeBoxNotesTemplate.configs"
                  is-open="collapseSectionStatus[$index]"
                  as-sortable-item>
-                <div class="panel-heading" as-sortable-item-handle ng-class="{'open': !collapseSectionStatus[$index]}">
+                <div class="card-header" as-sortable-item-handle ng-class="{'open': !collapseSectionStatus[$index]}">
                     <div as-sortable-item-handle
-                         class="text-ellipsis"
+                         class="text-truncate"
                          style="display: inline-block; width: 200px">
                         ${message(code: 'todo.is.ui.timeBoxNotesTemplate.section')} {{($index+1) + (config.header ? " - "+config.header : "")}}
                     </div>
                     <button type="button"
-                            class="btn btn-default btn-sm pull-right"
+                            class="btn btn-icon btn-secondary btn-sm float-right"
                             name="expand"
                             ng-click="expandSection($index)">
-                        <i class="fa fa-pencil"></i>
+                        <i class="icon icon-edit"></i>
                     </button>
                 </div>
-                <div class="panel-body" uib-collapse="collapseSectionStatus[$index]">
+                <div class="card-body" uib-collapse="collapseSectionStatus[$index]">
                     <div class="form-group">
                         <label for="configs-{($index}}-header">${message(code: 'todo.is.ui.timeBoxNotesTemplate.section.header')}</label>
                         <textarea name="configs-{($index}}-header"
@@ -75,7 +76,7 @@
                                   class="form-control fixedRow">
                         </textarea>
                     </div>
-                    <div class="clearfix no-padding">
+                    <div class="row is-form-row">
                         <div class="form-2-tiers">
                             <label for="configs-{($index}}-storyTags">${message(code: 'todo.is.ui.timeBoxNotesTemplate.storyTags')}</label>
                             <ui-select ng-click="retrieveTags()"
@@ -98,10 +99,10 @@
                                        ng-model="config.storyType">
                                 <ui-select-match allow-clear="true"
                                                  placeholder="${message(code: 'todo.is.ui.timeBoxNotesTemplate.storyTypeAll')}"><i
-                                        class="fa fa-{{ $select.selected | storyTypeIcon }}"></i> {{ $select.selected | i18n:'StoryTypes' }}
+                                        class="{{ $select.selected | storyTypeIcon }}"></i> {{ $select.selected | i18n:'StoryTypes' }}
                                 </ui-select-match>
                                 <ui-select-choices repeat="storyType in storyTypes"><i
-                                        class="fa fa-{{ ::storyType | storyTypeIcon }}"></i> {{ ::storyType | i18n:'StoryTypes' }}
+                                        class="{{ ::storyType | storyTypeIcon }}"></i> {{ ::storyType | i18n:'StoryTypes' }}
                                 </ui-select-choices>
                             </ui-select>
                         </div>
@@ -123,15 +124,15 @@
                                   ng-model="config.footer"
                                   class="form-control fixedRow"></textarea>
                     </div>
-                    <button class="btn btn-danger btn-sm pull-right"
+                    <button class="btn btn-danger btn-sm float-right"
                             type="button"
                             name="delete"
-                            ng-click="confirmDelete({callback: deleteSection, args: [timeBoxNotesTemplate, config]});">
+                            delete-button-click="deleteSection(timeBoxNotesTemplate, config)">
                         ${message(code: 'default.button.delete.label')}
                     </button>
                 </div>
             </div>
-            <button class="btn btn-default"
+            <button class="btn btn-secondary btn-sm"
                     style="width: 100%"
                     type="button"
                     name="delete"

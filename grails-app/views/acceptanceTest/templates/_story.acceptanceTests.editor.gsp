@@ -26,20 +26,24 @@
       name="formHolder.acceptanceTestForm"
       ng-class="['form-editable form-editing', formHolder.formExpanded ? 'form-expanded' : 'form-not-expanded']"
       novalidate>
-    <div class="clearfix no-padding">
+    <div class="row is-form-row">
         <div class="form-group" ng-class="formHolder.formExpanded ? 'col-sm-8' : 'col-sm-12'">
             <div class="input-group">
-                <span class="input-group-addon no-style"><strong>42</strong></span>
                 <input required
                        type="text"
                        ng-maxlength="255"
+                       autocomplete="off"
                        name="name"
                        ng-model="editableAcceptanceTest.name"
                        ng-focus="formHolder.formExpanded = true;"
                        class="form-control"
                        placeholder="${message(code: 'is.acceptanceTest')}">
-                <span class="input-group-btn visible-hidden">
-                    <button class="btn btn-primary" type="button" ng-click="formHolder.formExpanded = true;"><i class="fa fa-plus"></i></button>
+                <span class="input-group-append visible-hidden">
+                    <button class="btn btn-primary btn-sm"
+                            type="button"
+                            ng-click="formHolder.formExpanded = true;">
+                        <i class="fa fa-plus"></i>
+                    </button>
                 </span>
             </div>
         </div>
@@ -67,7 +71,7 @@
                   is-model-html="editableAcceptanceTest.description_html"
                   ng-show="showAcceptanceTestDescriptionTextarea"
                   placeholder="${message(code: 'is.ui.backlogelement.nodescription')}"></textarea>
-        <div class="markitup-preview"
+        <div class="markitup-preview form-control"
              ng-show="!showAcceptanceTestDescriptionTextarea"
              ng-click="showAcceptanceTestDescriptionTextarea = true"
              ng-focus="focusAcceptanceTestDescription()"
@@ -76,12 +80,12 @@
              ng-bind-html="editableAcceptanceTest.description_html ? editableAcceptanceTest.description_html : '<p>${message(code: 'is.backlogelement.description')}</p>'"></div>
     </div>
     <div class="btn-toolbar">
-        <button class="btn btn-primary pull-right"
+        <button class="btn btn-primary btn-sm float-right"
                 ng-disabled="!formHolder.acceptanceTestForm.$dirty || formHolder.acceptanceTestForm.$invalid || application.submitting"
                 type="submit">
             ${message(code: 'default.button.create.label')}
         </button>
-        <button class="btn btn-default pull-right"
+        <button class="btn btn-secondary btn-sm float-right"
                 ng-click="formHolder.formExpanded = false;"
                 type="button">
             ${message(code: 'is.button.cancel')}

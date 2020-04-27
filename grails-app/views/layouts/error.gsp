@@ -36,20 +36,13 @@
         <!-- end iOS web app-->
         <asset:link rel="shortcut icon" href="favicon.ico" type="image/x-icon"/>
         <asset:stylesheet href="application.css"/>
+        <asset:javascript src="preload/utils.js"/>
+        <g:include controller="scrumOS" action="isSettings" params="${params}"/>
         <g:layoutHead/>
     </head>
-    <body class="error-template">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-12">
-                    <div>
-                        <svg class="logo" viewBox="0 0 150 150">
-                            <g:render template="/scrumOS/logo"/>
-                        </svg>
-                        <g:layoutBody/>
-                    </div>
-                </div>
-            </div>
+    <body class="text-center">
+        <div style="margin-top: 100px;">
+            <g:layoutBody/>
         </div>
     </body>
 </html>

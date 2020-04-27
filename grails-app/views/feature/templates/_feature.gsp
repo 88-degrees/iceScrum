@@ -22,63 +22,64 @@
 --}%
 
 <script type="text/ng-template" id="feature.html">
-<div postit-color="{{:: feature.color }}"
-     class="postit feature"
+<div sticky-note-color="{{:: feature.color }}"
+     class="sticky-note"
      ng-class=":: [(feature.color | contrastColor), (feature.type | featureType)]">
     <div as-sortable-item-handle>
-        <div class="head">
-            <div class="head-left">
-                <span class="id">{{:: feature.uid }}</span>
-                <entry:point id="feature-postit-head-left"/>
-            </div>
-            <div class="head-right">
-                <span class="value"
-                      defer-tooltip="${message(code: 'is.feature.value')}"
-                      ng-if="::feature.value">
-                    {{:: feature.value }} <i class="fa fa-line-chart"></i>
+        <div class="sticky-note-head" ng-class=":: story | idSizeClass">
+            <div class="id-icon" ng-include="'feature.icon.html'"></div>
+            <span class="id">{{:: feature.uid }}</span>
+            <div class="sticky-note-type-icon"></div>
+        </div>
+        <div class="sticky-note-content" ng-class="::{'has-description':!!feature.description}">
+            <div class="item-values">
+                <span ng-if="::feature.value">
+                    ${message(code: 'is.feature.value')} <strong>{{:: feature.value }}</strong>
                 </span>
             </div>
-        </div>
-        <div ng-class="::['content',{'without-description':!feature.description}]">
-            <h3 class="title">{{:: feature.name }}</h3>
-            <h3 class="title title-sm">{{:: feature.name | ellipsis:45 }}</h3>
+            <div class="title">{{:: feature.name }}</div>
             <div class="description"
                  ng-bind-html="::feature.description | lineReturns"></div>
         </div>
-        <div class="footer">
-            <div class="tags">
-                <icon-badge class="pull-right" tooltip="${message(code: 'is.backlogelement.tags')}"
-                            href="{{:: openFeatureUrl(feature) }}"
-                            icon="fa-tags"
-                            max="3"
-                            hide="true"
-                            count="{{:: feature.tags.length }}"/>
-                <a ng-repeat="tag in ::feature.tags"
-                   href="{{ tagContextUrl(tag) }}">
-                    <span class="tag {{ getTagColor(tag, 'feature') | contrastColor }}"
-                          ng-style="{'background-color': getTagColor(tag, 'story') }">{{:: tag }}</span>
-                </a>
-            </div>
-            <div class="actions">
-                <icon-badge tooltip="${message(code: 'todo.is.ui.backlogelement.attachments')}"
-                            href="{{:: openFeatureUrl(feature) }}"
-                            icon="fa-paperclip"
-                            count="{{:: feature.attachments_count }}"/>
-                <icon-badge tooltip="${message(code: 'todo.is.ui.stories')}"
-                            href="{{:: openFeatureUrl(feature) }}/stories"
-                            icon="fa-sticky-note"
-                            count="{{:: feature.stories_ids.length }}"/>
-                <span postit-menu="item.menu.html" ng-init="itemType = 'feature'" class="action"><a><i class="fa fa-ellipsis-h"></i></a></span>
-            </div>
-            <div class="state-progress">
-                <div class="progress">
-                    <span class="status">{{:: feature.countDoneStories + '/' + feature.stories_ids.length }}</span>
-                    <div class="progress-bar"
-                         ng-style="::{width: (feature.countDoneStories | percentProgress:feature.stories_ids.length) + '%'}">
-                    </div>
+        <div class="sticky-note-tags">
+            <icon-badge class="float-right" tooltip="${message(code: 'is.backlogelement.tags')}"
+                        href="{{:: openFeatureUrl(feature) }}"
+                        icon="fa-tags"
+                        max="3"
+                        hide="true"
+                        count="{{:: feature.tags.length }}"></icon-badge>
+            <a ng-repeat="tag in ::feature.tags"
+               href="{{ tagContextUrl(tag) }}">
+                <span class="tag {{ getTagColor(tag) | contrastColor }}"
+                      ng-style="{'background-color': getTagColor(tag) }">{{:: tag }}</span>
+            </a>
+        </div>
+        <div class="sticky-note-actions">
+            <icon-badge tooltip="${message(code: 'todo.is.ui.backlogelement.attachments')}"
+                        href="{{:: openFeatureUrl(feature) }}"
+                        icon="attach"
+                        count="{{:: feature.attachments_count }}"></icon-badge>
+            <icon-badge classes="comments"
+                        tooltip="${message(code: 'todo.is.ui.comments')}"
+                        href="{{:: openFeatureUrl(feature) }}/comments"
+                        icon="comment"
+                        count="{{:: feature.comments_count }}"></icon-badge>
+            <icon-badge tooltip="${message(code: 'todo.is.ui.stories')}"
+                        href="{{:: openFeatureUrl(feature) }}/stories"
+                        ng-if="feature.state >= featureStatesByName.TODO"
+                        icon="story"
+                        count="{{:: feature.stories_ids.length }}"></icon-badge>
+            <span sticky-note-menu="item.menu.html" ng-init="itemType = 'feature'" class="action"><a class="action-link"><span class="action-icon action-icon-menu"></span></a></span>
+        </div>
+        <div class="sticky-note-state-progress">
+            <div ng-if="::showFeatureProgress(feature)" class="progress">
+                <span class="status">{{:: feature.countDoneStories + '/' + feature.stories_ids.length }}</span>
+                <div class="progress-bar"
+                     ng-style="::{width: (feature.countDoneStories | percentProgress:feature.stories_ids.length) + '%'}">
                 </div>
-                <div class="state hover-progress">{{:: feature.state | i18n:'FeatureStates' }}</div>
             </div>
+            <div class="state"
+                 ng-class="::{'state-hover-progress':stateHoverProgress(feature)}">{{:: feature.state | i18n:'FeatureStates' }}</div>
         </div>
     </div>
 </div>

@@ -38,6 +38,9 @@ databaseChangeLog = {
     include file: "changelog-7-29.groovy"
     include file: "changelog-7-31.groovy"
     include file: "changelog-7-34.groovy"
+    include file: "changelog-7-40.groovy"
+    include file: "changelog-7-43.groovy"
+    include file: "changelog-7-44.groovy"
     if (ApplicationSupport.isMySQLUTF8mb4()) {
         include file: "changelog-utf8mb4.groovy"
     }

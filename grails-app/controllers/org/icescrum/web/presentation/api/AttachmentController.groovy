@@ -24,76 +24,77 @@ package org.icescrum.web.presentation.api
 import grails.converters.JSON
 import grails.plugin.springsecurity.annotation.Secured
 import org.icescrum.components.UtilsWebComponents
-import org.icescrum.core.domain.*
-import org.icescrum.core.error.BusinessException
+import org.icescrum.core.domain.User
+import org.icescrum.core.domain.WorkspaceType
 import org.icescrum.core.error.ControllerErrorHandler
-import org.icescrum.core.event.IceScrumEventType
+import org.icescrum.core.security.WorkspaceSecurity
 import org.icescrum.plugins.attachmentable.domain.Attachment
 
 import javax.servlet.http.HttpServletResponse
 
-class AttachmentController implements ControllerErrorHandler {
+@Secured('permitAll()')
+class AttachmentController implements ControllerErrorHandler, WorkspaceSecurity {
 
     def springSecurityService
     def attachmentableService
+    def attachmentService
 
-    @Secured('stakeHolder() or inProject()')
-    def index() {
-        def attachmentable = getAttachmentableObject(params)
-        if (attachmentable) {
-            render(status: 200, contentType: 'application/json', text: attachmentable.attachments as JSON)
+    def index(long workspace, String workspaceType, Long attachmentable, String type) {
+        if (!checkPermission(
+                project: 'stakeHolder() or inProject()',
+                portfolio: 'businessOwner() or portfolioStakeHolder()'
+        )) {
+            return
+        }
+        def _attachmentable = attachmentService.withAttachmentable(workspace, workspaceType, attachmentable, type)
+        if (_attachmentable) {
+            render(status: 200, contentType: 'application/json', text: _attachmentable.attachments.collect {
+                Attachment attachment -> attachmentService.getRenderableAttachment(attachment, _attachmentable)
+            } as JSON)
         } else {
             returnError(code: 'todo.is.ui.backlogelement.attachments.error')
         }
     }
 
-    @Secured('stakeHolder() or inProject()')
-    def show() {
-        def attachmentable = getAttachmentableObject(params)
-        if (attachmentable) {
-            def attachment = attachmentable.attachments?.find { it.id == params.long('id') }
-            if (attachment) {
-                if (attachment.url) {
-                    redirect(url: "${attachment.url}")
-                    return
-                } else {
-                    File file = attachmentableService.getFile(attachment)
-                    if (file.exists()) {
-                        String filename = attachment.filename
-                        ['Content-disposition': "attachment;filename=\"$filename\"", 'Cache-Control': 'private', 'Pragma': ''].each { k, v ->
-                            response.setHeader(k, v)
-                        }
-                        response.contentType = attachment.contentType
-                        response.outputStream << file.newInputStream()
-                        return
-                    }
+    def show(long id, long workspace, String workspaceType) {
+        if (!checkPermission(
+                project: 'stakeHolder() or inProject()',
+                portfolio: 'businessOwner() or portfolioStakeHolder()'
+        )) {
+            return
+        }
+        Attachment attachment = attachmentService.withAttachment(workspace, workspaceType, id)
+        if (attachment.url) {
+            redirect(url: "${attachment.url}")
+            return
+        } else {
+            File file = attachmentableService.getFile(attachment)
+            if (file.exists()) {
+                String filename = attachment.filename
+                ['Content-disposition': "attachment;filename=\"$filename\"", 'Cache-Control': 'private', 'Pragma': ''].each { k, v ->
+                    response.setHeader(k, v)
                 }
+                response.contentType = attachment.contentType
+                response.outputStream << file.newInputStream()
+                return
             }
         }
         response.status = HttpServletResponse.SC_NOT_FOUND
     }
 
-    @Secured('(isAuthenticated() and stakeHolder()) or inProject()')
-    def save() {
-        def attachmentable = getAttachmentableObject(params)
-        def endOfUpload = { uploadInfo ->
-            def service = grailsApplication.mainContext[params.type + 'Service']
-            service.publishSynchronousEvent(IceScrumEventType.BEFORE_UPDATE, attachmentable, ['addAttachment': null])
-            Attachment attachment
-            if (uploadInfo.filePath) {
-                File attachmentFile = new File(uploadInfo.filePath)
-                if (!attachmentFile.length()) {
-                    throw new BusinessException(code: 'todo.is.ui.backlogelement.attachments.error.empty')
-                }
-                attachment = attachmentable.addAttachment(springSecurityService.currentUser, attachmentFile, uploadInfo.filename)
-            } else {
-                attachment = attachmentable.addAttachment(springSecurityService.currentUser, uploadInfo, uploadInfo.name)
-            }
-            attachment.provider = uploadInfo instanceof Map ? uploadInfo.provider : null
-            service.publishSynchronousEvent(IceScrumEventType.UPDATE, attachmentable, ['addedAttachment': attachment])
-            render(status: 201, contentType: 'application/json', text: attachment as JSON)
+    def save(long workspace, String workspaceType, Long attachmentable, String type) {
+        if (!checkPermission(
+                project: '((isAuthenticated() and stakeHolder()) or inProject()) and !archivedProject()',
+                portfolio: 'businessOwner() or portfolioStakeHolder()'
+        )) {
+            return
         }
-        if (attachmentable) {
+        def _attachmentable = attachmentService.withAttachmentable(workspace, workspaceType, attachmentable, type)
+        def endOfUpload = { uploadInfo ->
+            def attachment = attachmentService.save(_attachmentable, ((User) springSecurityService.currentUser), uploadInfo)
+            render(status: 201, contentType: 'application/json', text: attachmentService.getRenderableAttachment(attachment) as JSON)
+        }
+        if (_attachmentable) {
             if (params.url) {
                 endOfUpload(params)
             } else {
@@ -105,62 +106,35 @@ class AttachmentController implements ControllerErrorHandler {
         }
     }
 
-    @Secured('productOwner() or scrumMaster()')
-    def update() {
-        def attachmentable = getAttachmentableObject(params)
-        if (attachmentable) {
-            Attachment.withTransaction {
-                Attachment attachment = attachmentable.attachments?.find { it.id == params.long('id') }
-                if (attachment && params.attachment.name && attachment.name != params.attachment.name) {
-                    attachment.name = params.attachment.name
-                    attachment.inputName = attachment.filename
-                    attachment.save()
-                    render(status: 200, contentType: 'application/json', text: attachment as JSON)
-                }
-            }
+    def update(long id, long workspace, String workspaceType) {
+        if (!checkPermission(
+                project: 'productOwner() or scrumMaster()',
+                portfolio: 'businessOwner()'
+        )) {
+            return
+        }
+        Attachment.withTransaction {
+            def attachment = attachmentService.withAttachment(workspace, workspaceType, id)
+            attachmentService.update(attachment, [name: params.attachment.name])
+            render(status: 200, contentType: 'application/json', text: attachmentService.getRenderableAttachment(attachment) as JSON)
         }
     }
 
-    @Secured('productOwner() or scrumMaster()')
-    def delete() {
-        def attachmentable = getAttachmentableObject(params)
-        if (attachmentable) {
-            def attachment = attachmentable.attachments?.find { it.id == params.long('id') }
-            if (attachment) {
-                grailsApplication.mainContext[params.type + 'Service'].publishSynchronousEvent(IceScrumEventType.BEFORE_UPDATE, attachmentable, ['removeAttachment': attachment])
-                attachmentable.removeAttachment(attachment)
-                grailsApplication.mainContext[params.type + 'Service'].publishSynchronousEvent(IceScrumEventType.UPDATE, attachmentable, ['removedAttachment': null])
-                render(status: 204)
+    def delete(long id, long workspace, String workspaceType) {
+        if (!checkPermission(
+                project: 'productOwner() or scrumMaster()',
+                portfolio: 'businessOwner()'
+        )) {
+            return
+        }
+        Attachment.withTransaction {
+            def attachment = attachmentService.withAttachment(workspace, workspaceType, id)
+            if ((workspaceType == WorkspaceType.PROJECT && !request.productOwner && !request.scrumMaster || workspaceType == WorkspaceType.PORTFOLIO && !request.businessOwner) && attachment.posterId != springSecurityService.currentUser.id) {
+                render(status: 403)
+                return
             }
+            attachmentService.delete(attachment)
+            render(status: 204)
         }
-    }
-
-    private static getAttachmentableObject(def params) {
-        def attachmentable
-        long project = params.long('project')
-        long attachmentableId = params.long('attachmentable')
-        switch (params.type) {
-            case 'story':
-                attachmentable = Story.getInProject(project, attachmentableId).list()
-                break
-            case 'task':
-                attachmentable = Task.getInProject(project, attachmentableId)
-                break
-            case 'feature':
-                attachmentable = Feature.getInProject(project, attachmentableId).list()
-                break
-            case 'release':
-                attachmentable = Release.getInProject(project, attachmentableId).list()
-                break
-            case 'sprint':
-                attachmentable = Sprint.getInProject(project, attachmentableId).list()
-                break
-            case 'project':
-                attachmentable = Project.get(attachmentableId)
-                break
-            default:
-                attachmentable = null
-        }
-        attachmentable
     }
 }

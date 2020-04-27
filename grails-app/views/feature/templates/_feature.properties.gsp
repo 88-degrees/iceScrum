@@ -25,7 +25,13 @@
       ng-class="{'form-editable': formEditable(), 'form-editing': formHolder.editing }"
       show-validation
       novalidate>
-    <div class="panel-body">
+    <div class="card-body">
+        <div class="drop-zone d-flex align-items-center justify-content-center">
+            <div>
+                <asset:image src="application/upload.svg" width="70" height="70"/>
+                <span class="drop-text">${message(code: 'todo.is.ui.drop.here')}</span>
+            </div>
+        </div>
         <div class="form-group">
             <label for="name">${message(code: 'is.feature.name')}</label>
             <div class="input-group">
@@ -34,12 +40,13 @@
                        ng-focus="editForm(true)"
                        ng-disabled="!formEditable()"
                        name="name"
+                       autocomplete="off"
                        ng-model="editableFeature.name"
                        type="text"
                        class="form-control">
-                <span class="input-group-btn" ng-if="formEditable()">
+                <span class="input-group-append" ng-if="formEditable()">
                     <button colorpicker
-                            class="btn {{ editableFeature.color | contrastColor }}"
+                            class="btn btn-sm btn-colorpicker {{ editableFeature.color | contrastColor }}"
                             type="button"
                             ng-style="{'background-color': editableFeature.color}"
                             colorpicker-position="left"
@@ -48,11 +55,11 @@
                             value="#bf3d3d"
                             name="color"
                             colors="availableColors"
-                            ng-model="editableFeature.color"><i class="fa fa-pencil"></i> ${message(code: 'todo.is.ui.color')}</button>
+                            ng-model="editableFeature.color">${message(code: 'todo.is.ui.color')}</button>
                 </span>
             </div>
         </div>
-        <div class="clearfix no-padding">
+        <div class="row is-form-row">
             <div class="form-half">
                 <label for="type">${message(code: 'is.feature.type')}</label>
                 <ui-select class="form-control"
@@ -60,12 +67,12 @@
                            ng-disabled="!formEditable()"
                            name="type"
                            ng-model="editableFeature.type">
-                    <ui-select-match><i class="fa fa-{{ $select.selected | featureTypeIcon }}"></i> {{ $select.selected | i18n:'FeatureTypes' }}</ui-select-match>
-                    <ui-select-choices repeat="featureType in featureTypes"><i class="fa fa-{{ ::featureType | featureTypeIcon }}"></i> {{ ::featureType | i18n:'FeatureTypes' }}</ui-select-choices>
+                    <ui-select-match><i class="{{ $select.selected | featureTypeIcon }}"></i> {{ $select.selected | i18n:'FeatureTypes' }}</ui-select-match>
+                    <ui-select-choices repeat="featureType in featureTypes"><i class="{{ ::featureType | featureTypeIcon }}"></i> {{ ::featureType | i18n:'FeatureTypes' }}</ui-select-choices>
                 </ui-select>
             </div>
             <div class="form-half">
-                <label for="value"><i class="fa fa-line-chart"></i> ${message(code: 'is.feature.value')}</label>
+                <label for="value">${message(code: 'is.feature.value')}</label>
                 <ui-select class="form-control"
                            ng-click="editForm(true)"
                            ng-disabled="!formEditable()"
@@ -90,10 +97,11 @@
                       name="description"
                       ng-model="editableFeature.description"></textarea>
         </div>
-        <div class="form-group" ng-if="showTags">
-            <label for="tags">
+        <div class="form-group"
+             ng-if="showTags">
+            <label for="tags" class="d-flex align-items-center justify-content-between">
+                <div>${message(code: 'is.backlogelement.tags')}</div>
                 <entry:point id="item-properties-inside-tag"/>
-                ${message(code: 'is.backlogelement.tags')}
             </label>
             <ui-select class="form-control"
                        ng-click="retrieveTags(); editForm(true)"
@@ -122,45 +130,37 @@
                       ng-show="showNotesTextarea"
                       ng-blur="showNotesTextarea = false"
                       placeholder="${message(code: 'is.ui.backlogelement.nonotes')}"></textarea>
-            <div class="markitup-preview"
+            <div class="markitup-preview form-control"
                  ng-disabled="!formEditable()"
                  ng-show="!showNotesTextarea"
-                 ng-click="showNotesTextarea = formEditable()"
                  ng-focus="editForm(true); showNotesTextarea = formEditable()"
                  ng-class="{'placeholder': !editableFeature.notes_html}"
                  tabindex="0"
-                 ng-bind-html="editableFeature.notes_html ? editableFeature.notes_html : '<p>${message(code: 'is.ui.backlogelement.nonotes')}</p>'"></div>
+                 bind-html-scope="markitupCheckboxOptions()"
+                 bind-html-compile="editableFeature.notes_html ? editableFeature.notes_html : '<p>${message(code: 'is.ui.backlogelement.nonotes')}</p>'"></div>
         </div>
-        <div class="form-group">
-            <label>${message(code: 'is.backlogelement.attachment')} {{ feature.attachments_count > 0 ? '(' + feature.attachments_count + ')' : '' }}</label>
-            <div ng-if="authorizedFeature('upload', feature)"
-                 ng-controller="attachmentNestedCtrl">
-                <button type="button"
-                        class="btn btn-default"
-                        flow-btn>
-                    <i class="fa fa-upload"></i> ${message(code: 'todo.is.ui.new.upload')}
-                </button>
-                <entry:point id="attachment-add-buttons"/>
+        <label>${message(code: 'is.backlogelement.attachment')} {{ feature.attachments_count > 0 ? '(' + feature.attachments_count + ')' : '' }}</label>
+        <div class="attachments attachments-bordered">
+            <div ng-if="authorizedFeature('upload', feature)" ng-controller="attachmentNestedCtrl" class="upload-and-apps row">
+                <div class="upload-file col-6">
+                    <span class="attachment-icon"></span><span flow-btn class="link">${message(code: 'todo.is.ui.attachment.add')}</span>&nbsp;<span class="d-none d-md-inline">${message(code: 'todo.is.ui.attachment.drop')}</span>
+                </div>
+                <div class="upload-apps col-6">
+                    <g:include view="attachment/_buttons.gsp"/>
+                </div>
             </div>
-            <div class="form-control-static" ng-include="'attachment.list.html'">
-            </div>
+            <div ng-include="'attachment.list.html'"></div>
         </div>
     </div>
-    <div class="panel-footer" ng-if="isModal || formHolder.editing">
+    <div class="card-footer" ng-if="isModal || formHolder.editing">
         <div class="btn-toolbar">
-            <button class="btn btn-primary"
-                    ng-if="formHolder.editing && (isLatest() || application.submitting)"
-                    ng-disabled="!isDirty() || formHolder.featureForm.$invalid || application.submitting"
-                    type="submit">
-                ${message(code: 'default.button.update.label')}
+            <button class="btn btn-secondary"
+                    type="button"
+                    ng-if="isModal && !isDirty()"
+                    ng-click="$close()">
+                ${message(code: 'is.button.close')}
             </button>
-            <button class="btn btn-danger"
-                    ng-if="formHolder.editing && !isLatest() && !application.submitting"
-                    ng-disabled="!isDirty() || formHolder.featureForm.$invalid"
-                    type="submit">
-                ${message(code: 'default.button.override.label')}
-            </button>
-            <button class="btn btn-default"
+            <button class="btn btn-secondary"
                     type="button"
                     ng-if="(!isModal && formHolder.editing) || (isModal && isDirty())"
                     ng-click="editForm(false)">
@@ -172,11 +172,17 @@
                     ng-click="resetFeatureForm()">
                 <i class="fa fa-warning"></i> ${message(code: 'default.button.refresh.label')}
             </button>
-            <button class="btn btn-default"
-                    type="button"
-                    ng-if="isModal && !isDirty()"
-                    ng-click="$close()">
-                ${message(code: 'is.button.close')}
+            <button class="btn btn-danger"
+                    ng-if="formHolder.editing && !isLatest() && !application.submitting"
+                    ng-disabled="!isDirty() || formHolder.featureForm.$invalid"
+                    type="submit">
+                ${message(code: 'default.button.override.label')}
+            </button>
+            <button class="btn btn-primary"
+                    ng-if="formHolder.editing && (isLatest() || application.submitting)"
+                    ng-disabled="!isDirty() || formHolder.featureForm.$invalid || application.submitting"
+                    type="submit">
+                ${message(code: 'default.button.update.label')}
             </button>
         </div>
     </div>

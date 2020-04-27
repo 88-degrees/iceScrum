@@ -21,11 +21,11 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <script type="text/ng-template" id="form.members.portfolio.html">
-<p class="help-block">${message(code: 'is.ui.user.add' + (grailsApplication.config.icescrum.invitation.enable ? '' : '.invite'))}</p>
+<p class="form-text">${message(code: 'is.ui.user.add' + (grailsApplication.config.icescrum.invitation.enable ? '' : '.invite'))}</p>
 <div class="row">
-    <div class="col-sm-4">
+    <div class="col-sm-4 mb-3">
         <label for="businessOwners.search">${message(code: 'todo.is.ui.select.portfolio.businessOwner')}</label>
-        <p class="input-group">
+        <div class="input-group">
             <input autocomplete="off"
                    type="text"
                    name="businessOwners.search"
@@ -34,16 +34,17 @@
                    placeholder="${message(code: 'is.ui.user.search.placeholder' + (grailsApplication.config.icescrum.user.search.enable ? '' : '.email'))}"
                    ng-model="bo"
                    uib-typeahead="bo as bo.name for bo in searchUsers($viewValue, true)"
-                   typeahead-append-to-body="true"
                    typeahead-loading="searchingBo"
                    typeahead-min-length="2"
                    typeahead-wait-ms="250"
                    typeahead-on-select="addUser($item, 'bo')"
                    typeahead-template-url="select.member.html">
-            <span class="input-group-addon">
-                <i class="fa" ng-class="{ 'fa-search': !searchingBo, 'fa-refresh':searchingBo }"></i>
+            <span class="input-group-append">
+                <span class="input-group-text">
+                    <i class="fa" ng-class="{ 'fa-search': !searchingBo, 'fa-refresh':searchingBo }"></i>
+                </span>
             </span>
-        </p>
+        </div>
     </div>
     <div class="col-sm-8">
         <label ng-if="portfolio.businessOwners.length">${message(code: 'is.ui.portfolio.businessOwners')}</label>
@@ -53,9 +54,9 @@
     </div>
 </div>
 <div class="row">
-    <div class="col-sm-4">
+    <div class="col-sm-4 mb-3">
         <label for="stakeHolders.search">${message(code: 'todo.is.ui.select.portfolio.stakeholder')}</label>
-        <p class="input-group">
+        <div class="input-group">
             <input autocomplete="off"
                    type="text"
                    name="stakeHolder.search"
@@ -64,16 +65,17 @@
                    placeholder="${message(code: 'is.ui.user.search.placeholder' + (grailsApplication.config.icescrum.user.search.enable ? '' : '.email'))}"
                    ng-model="sh"
                    uib-typeahead="sh as sh.name for sh in searchUsers($viewValue)"
-                   typeahead-append-to-body="true"
                    typeahead-loading="searchingSh"
                    typeahead-min-length="2"
                    typeahead-wait-ms="250"
                    typeahead-on-select="addUser($item, 'sh')"
                    typeahead-template-url="select.member.html">
-            <span class="input-group-addon">
-                <i class="fa" ng-class="{ 'fa-search': !searchingSh, 'fa-refresh':searchingSh }"></i>
+            <span class="input-group-append">
+                <span class="input-group-text">
+                    <i class="fa" ng-class="{ 'fa-search': !searchingSh, 'fa-refresh':searchingSh }"></i>
+                </span>
             </span>
-        </p>
+        </div>
     </div>
     <div class="col-sm-8">
         <label ng-if="portfolio.stakeHolders.length">${message(code: 'is.ui.portfolio.stakeholders')}</label>

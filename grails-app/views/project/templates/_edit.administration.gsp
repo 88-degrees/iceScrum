@@ -29,8 +29,8 @@
       ng-submit='update(project)'
       name="formHolder.editProjectForm">
     <entry:point id="project-edit-administration"/>
-    <h4>${message(code: "is.project.preferences.project.stakeHolderAccess")}</h4>
-    <table class="table table-striped table-responsive" ng-class="{'disabled': !stakeHolderViewsFormEnabled}">
+    <h4 class="mb-2">${message(code: "is.project.preferences.project.stakeHolderAccess")}</h4>
+    <table class="table table-striped" ng-class="{'disabled': !stakeHolderViewsFormEnabled}">
         <tr>
             <th ng-class="{'text-muted': !stakeHolderViewsFormEnabled}">${message(code: 'is.project.preferences.project.stakeHolderRestrictedViews')}</th>
             <th></th>
@@ -40,33 +40,33 @@
             <td class="text-right"><input type="checkbox" name="view.hidden" ng-model="view.hidden" ng-disabled="!stakeHolderViewsFormEnabled"></td>
         </tr>
     </table>
-    <h4>${message(code: "is.ui.danger.zone")}</h4>
+    <h4 class="mb-2">${message(code: "is.ui.danger.zone")}</h4>
     <div class="btn-toolbar">
         <button ng-if="authorizedProject('delete', project)"
                 type="button"
                 role="button"
-                class="btn btn-danger"
-                ng-click="delete(project)">
+                class="btn btn-danger btn-sm"
+                delete-button-click="delete(project)">
             ${message(code: 'is.projectmenu.submenu.project.delete')}
         </button>
         <button ng-if="!project.preferences.archived"
                 type="button"
                 role="button"
-                class="btn btn-danger"
-                ng-click="archive(project)">
+                class="btn btn-danger btn-sm"
+                delete-button-click="archive(project)">
             ${message(code: 'is.dialog.project.archive.button')}
         </button>
         <button ng-if="project.preferences.archived && authorizedProject('unArchive', project)"
                 type="button"
-                class="btn btn-danger"
+                class="btn btn-danger btn-sm"
                 ng-click="unArchive(project)">
             ${message(code: 'is.dialog.project.unArchive.button')}
         </button>
     </div>
-    <div class="btn-toolbar pull-right">
+    <div class="btn-toolbar float-right">
         <button type="button"
                 role="button"
-                class="btn btn-default"
+                class="btn btn-secondary"
                 ng-click="$close()">
             ${message(code: 'is.button.cancel')}
         </button>

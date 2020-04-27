@@ -21,71 +21,101 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 
-<is:modal title="${message(code: 'todo.is.ui.project.edit')}" class="wizard split-modal" footer="${false}">
-    <div class="row wizard-row">
-        <div class="left-panel col-xs-12 col-sm-3">
-            <ul class="left-panel-body nav nav-list">
-                <li ng-if="authorizedProject('update', currentProject)" ng-class="{ current: isCurrentPanel('general') }">
-                    <a ng-click="setCurrentPanel('general')"><i class="fa fa-pencil"></i> <span class="hidden-xs hidden-sm">${message(code: 'is.dialog.wizard.section.project')}</span></a>
+<is:modal title="${message(code: 'todo.is.ui.project.edit')}" class="modal-split" footer="${false}">
+    <div class="row">
+        <div class="col-sm-3 modal-split-left">
+            <ul class="nav nav-pills flex-column">
+                <li class="nav-item"
+                    ng-if="authorizedProject('update', currentProject)">
+                    <a class="nav-link"
+                       href
+                       ng-class="{ active: isCurrentPanel('general') }"
+                       ng-click="setCurrentPanel('general')">
+                        ${message(code: 'is.dialog.wizard.section.project')}
+                    </a>
                 </li>
-                <li ng-class="{ current: isCurrentPanel('actors') }">
-                    <a ng-click="setCurrentPanel('actors')"><i class="fa fa-child"></i> <span class="hidden-xs hidden-sm">${message(code: 'is.ui.actor.actors')}</span></a>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       href
+                       ng-class="{ active: isCurrentPanel('actors') }"
+                       ng-click="setCurrentPanel('actors')">
+                        ${message(code: 'is.ui.actor.actors')}
+                    </a>
                 </li>
-                <li ng-class="{ current: isCurrentPanel('team') }">
-                    <a ng-click="setCurrentPanel('team')"><i class="fa fa-users"></i> <span class="hidden-xs hidden-sm">${message(code: 'is.dialog.wizard.section.team')}</span></a>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       href
+                       ng-class="{ active: isCurrentPanel('team') }"
+                       ng-click="setCurrentPanel('team')">
+                        ${message(code: 'is.dialog.wizard.section.team')}
+                    </a>
                 </li>
-                <li ng-if="authorizedProject('update', currentProject)" ng-class="{ current: isCurrentPanel('practices') }">
-                    <a ng-click="setCurrentPanel('practices')"><i class="fa fa-sliders"></i> <span class="hidden-xs hidden-sm">${message(code: 'todo.is.ui.project.practices')}</span></a>
+                <li class="nav-item"
+                    ng-if="authorizedProject('update', currentProject)">
+                    <a class="nav-link"
+                       href
+                       ng-class="{ active: isCurrentPanel('practices') }"
+                       ng-click="setCurrentPanel('practices')">
+                        ${message(code: 'todo.is.ui.project.practices')}
+                    </a>
                 </li>
-                <li ng-if="authorizedProject('update', currentProject)" ng-class="{ current: isCurrentPanel('planning') }">
-                    <a ng-click="setCurrentPanel('planning')"><i class="fa fa-calendar"></i> <span class="hidden-xs hidden-sm">${message(code: 'todo.is.ui.project.planning')}</span></a>
+                <li class="nav-item"
+                    ng-if="authorizedProject('update', currentProject)">
+                    <a class="nav-link"
+                       href
+                       ng-class="{ active: isCurrentPanel('planning') }"
+                       ng-click="setCurrentPanel('planning')">
+                        ${message(code: 'todo.is.ui.project.planning')}
+                    </a>
                 </li>
-                <li ng-if="authorizedProject('update', currentProject)" ng-class="{ current: isCurrentPanel('administration') }">
-                    <a ng-click="setCurrentPanel('administration')"><i class="fa fa-cogs"></i> <span class="hidden-xs hidden-sm">${message(code: 'is.ui.administration')}</span></a>
+                <li class="nav-item"
+                    ng-if="authorizedProject('update', currentProject)">
+                    <a class="nav-link"
+                       href
+                       ng-class="{ active: isCurrentPanel('administration') }"
+                       ng-click="setCurrentPanel('administration')">
+                        ${message(code: 'is.ui.administration')}
+                    </a>
                 </li>
                 <entry:point id="project-edit-left"/>
-                <li ng-repeat="appWithSettings in appsWithSettings"
-                    ng-class="{ current: isCurrentPanel(appWithSettings.id) }">
-                    <a ng-click="setCurrentPanel(appWithSettings.id)">
-                        <i class="fa" ng-class="appWithSettings.projectSettings.icon"></i> <span class="hidden-xs hidden-sm">{{ appWithSettings.name }}</span>
+                <li class="nav-item"
+                    ng-repeat="appWithSettings in appsWithSettings">
+                    <a class="nav-link"
+                       href
+                       ng-class="{ active: isCurrentPanel(appWithSettings.id) }"
+                       ng-click="setCurrentPanel(appWithSettings.id)">
+                        {{ appWithSettings.name }}
                     </a>
                 </li>
             </ul>
         </div>
-        <div class="right-panel steps col-xs-12 col-sm-9" ng-switch="getCurrentPanel()">
+        <div class="col-sm-9 modal-split-right" ng-switch="getCurrentPanel()">
             <section ng-switch-when="general"
-                     class="step current"
                      title="${message(code: 'is.dialog.wizard.section.project')}">
                 <div ng-include="'edit.general.project.html'"></div>
             </section>
             <section ng-switch-when="actors"
-                     class="step current"
                      title="${message(code: 'is.ui.actor.actors')}">
                 <div ng-include="'edit.general.actors.html'"></div>
             </section>
             <section ng-switch-when="team"
-                     class="step current"
                      title="${message(code: 'is.dialog.wizard.section.team')}">
                 <div ng-include="'edit.members.project.html'"></div>
             </section>
             <section ng-switch-when="practices"
-                     class="step current"
                      title="${message(code: 'todo.is.ui.project.practices')}">
                 <div ng-include="'edit.practices.project.html'"></div>
             </section>
             <section ng-switch-when="planning"
-                     class="step current"
                      title="${message(code: 'todo.is.ui.project.planning')}">
                 <div ng-include="'edit.planning.project.html'"></div>
             </section>
             <section ng-switch-when="administration"
-                     class="step current"
                      title="${message(code: 'is.ui.administration')}">
                 <div ng-include="'edit.administration.project.html'"></div>
             </section>
             <entry:point id="project-edit-right"/>
             <section ng-if="isCurrentPanel(appWithSettings.id)"
-                     class="step current"
                      ng-repeat="appWithSettings in appsWithSettings"
                      ng-include="appWithSettings.projectSettings.template"
                      title="{{ appWithSettings.name }}">

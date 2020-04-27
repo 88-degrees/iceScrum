@@ -21,9 +21,11 @@
 --}%
 <is:modal name="about" title="${message(code: 'is.ui.about.title', args: [versionNumber])}">
     <uib-tabset active="active" type="pills" justified="true">
-        <uib-tab index="0" heading="${message(code: 'is.dialog.about.warnings')}">
-            <g:render template="/${controllerName}/about/warnings"/>
-        </uib-tab>
+        <g:if test="${grailsApplication.config.icescrum.warnings}">
+            <uib-tab index="0" heading="${message(code: 'is.dialog.about.warnings')}">
+                <g:render template="/${controllerName}/about/warnings"/>
+            </uib-tab>
+        </g:if>
         <entry:point id="about-first-tab"/>
         <uib-tab index="10" heading="${message(code: 'todo.is.ui.release.notes')}">
             <g:render template="/${controllerName}/about/releaseNotes" model="[releaseNotes: about.releaseNotes]"/>
@@ -32,7 +34,9 @@
             <g:render template="/${controllerName}/about/help" model="[version: about.version, versionNumber: versionNumber, server: server, configLocation: configLocation]"/>
         </uib-tab>
         <uib-tab index="12" heading="${message(code: 'is.dialog.about.legal')}">
-            ${about.license.text().encodeAsNL2BR()}
+            <div class="about-legal">
+                ${about.license.text().encodeAsNL2BR()}
+            </div>
         </uib-tab>
         <entry:point id="about-last-tab"/>
     </uib-tabset>

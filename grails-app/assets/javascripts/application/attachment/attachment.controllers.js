@@ -21,10 +21,20 @@
  * Nicolas Noullet (nnoullet@kagilum.com)
  *
  */
-extensibleController('attachmentCtrl', ['$scope', '$uibModal', 'AttachmentService', 'attachmentable', 'clazz', 'project', function($scope, $uibModal, AttachmentService, attachmentable, clazz, project) {
+extensibleController('attachmentCtrl', ['$scope', '$uibModal', '$injector', 'AttachmentService', 'AppService', 'attachmentable', 'clazz', 'workspace', 'workspaceType', function($scope, $uibModal, $injector, AttachmentService, AppService, attachmentable, clazz, workspace, workspaceType) {
     // Functions
+    $scope.providersPromoteList = function() {
+        return _.map($scope.getAttachmentProviders(), 'id');
+    };
+    $scope.selectedProvider = function(provider) {
+        if (provider.enabled) {
+            provider.select($scope, $uibModal);
+        } else {
+            $scope.showAppsModal($scope.message('is.ui.apps.tag.attachments'), true);
+        }
+    };
     $scope.deleteAttachment = function(attachment, attachmentable) { // cannot be just "delete" because it clashes with controllers that will inherit from this one
-        AttachmentService.delete(attachment, attachmentable, project.id);
+        AttachmentService.delete(attachment, attachmentable, workspace.id, workspaceType);
     };
     $scope.showEditAttachmentName = function(attachment, attachmentable) {
         $uibModal.open({
@@ -33,7 +43,7 @@ extensibleController('attachmentCtrl', ['$scope', '$uibModal', 'AttachmentServic
             controller: ['$scope', function($scope) {
                 $scope.editableAttachment = angular.copy(attachment);
                 $scope.submit = function(updatedAttachment) {
-                    AttachmentService.update(updatedAttachment, attachmentable, project.id).then(function() {
+                    AttachmentService.update(updatedAttachment, attachmentable, workspace.id, workspaceType).then(function() {
                         $scope.$close();
                     });
                 };
@@ -44,7 +54,11 @@ extensibleController('attachmentCtrl', ['$scope', '$uibModal', 'AttachmentServic
     $scope.getMethod = function(attachment, method) {
         var methodExt = $scope[method + _.capitalize(attachment.provider) + _.capitalize(attachment.ext)];
         var methodWithoutExt = $scope[method + _.capitalize(attachment.provider)];
-        return methodExt ? methodExt : (methodWithoutExt ? methodWithoutExt : null);
+        var provider = _.find($scope.getAttachmentProviders(), function(p) {
+            return p.id == attachment.provider || p.name == attachment.provider
+        });
+        var methodProviderConfig = provider ? provider[method] : null;
+        return methodExt ? methodExt : (methodWithoutExt ? methodWithoutExt : (methodProviderConfig ? methodProviderConfig : null));
     };
     $scope.getUrl = function(clazz, attachmentable, attachment) {
         if (attachment.provider && $scope.getMethod(attachment, 'getUrl')) {
@@ -57,7 +71,7 @@ extensibleController('attachmentCtrl', ['$scope', '$uibModal', 'AttachmentServic
         if (attachment.provider && $scope.getMethod(attachment, 'getAttachmentProviderName')) {
             return $scope.getMethod(attachment, 'getAttachmentProviderName')(attachment)
         } else {
-            return attachment.provider ? '(' + attachment.provider + ')' : '';
+            return attachment.provider ? attachment.provider : '';
         }
     };
     $scope.isPreviewable = function(attachment) {
@@ -147,12 +161,36 @@ extensibleController('attachmentCtrl', ['$scope', '$uibModal', 'AttachmentServic
     $scope.attachmentQuery = function($flow, attachmentable) {
         $scope.flow = $flow;
         $flow.opts.target = $scope.attachmentBaseUrl + $scope.clazz + '/' + attachmentable.id + '/flow';
+        var scrollOnComplete = function() {
+            var container = $('.attachments').parent();
+            if (container.length) {
+                container[0].scrollTop = container[0].scrollHeight;
+            }
+            $flow.off('complete', scrollOnComplete);
+        };
+        $flow.on('complete', scrollOnComplete);
         $flow.upload();
     };
     // Init
+    $scope.injector = $injector;
     $scope.attachmentable = attachmentable;
     $scope.clazz = clazz;
-    $scope.attachmentBaseUrl = $scope.serverUrl + '/p/' + project.id + '/attachment/';
+    $scope.attachmentBaseUrl = $scope.serverUrl + '/' + workspaceType + '/' + workspace.id + '/attachment/';
+
+    $scope.getFilteredProviders = function() {
+        var filteredProviders = _.filter($scope.getAttachmentProviders(), ['enabled', true]);
+        if (filteredProviders.length <= 3) {
+            filteredProviders = _.take(_.sortBy($scope.getAttachmentProviders(), [function(o) { return !o.enabled; }]), 3);
+        }
+        return filteredProviders;
+    };
+
+    $scope.$watch('project.simpleProjectApps', function() {
+        _.each($scope.getAttachmentProviders(), function(provider) {
+            provider.enabled = AppService.authorizedApp('use', provider.id, $scope.project);
+        });
+        $scope.providers = $scope.getAttachmentProviders();
+    }, true);
 }]);
 
 // Flow events are triggered by "$scope.$broadcast so they can be received only on controllers that are at the same level or below
@@ -165,8 +203,7 @@ extensibleController('attachmentNestedCtrl', ['$scope', 'AttachmentService', fun
     });
     $scope.$on('flow::fileError', function(event, $flow, flowFile, message) {
         var data = JSON.parse(message);
-        $scope.notifyError(angular.isArray(data) ? data[0].text : data.text, {duration: 8000});
+        $scope.notifyError(angular.isArray(data) ? data[0].text : data.text, {delay: 8000});
         $flow.removeFile(flowFile);
     });
 }]);
-
