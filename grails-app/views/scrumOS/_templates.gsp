@@ -21,13 +21,12 @@
 - Nicolas Noullet (nnoullet@kagilum.com)
 --}%
 <div id="templates">
-    <script type="text/ng-template" id="loading.html">
-    <div class="logo-loading"></div>
-    </script>
-
     <script type="text/ng-template" id="chart.modal.html">
     <is:modal title="{{ chartTitle }}">
-        <nvd3 options="options" data="data" config="{refreshDataOnly: false}"></nvd3>
+        <div ng-switch="chartLoaded">
+            <nvd3 ng-switch-when="true" options="options" data="data" config="{refreshDataOnly: false}"></nvd3>
+            <div ng-switch-default class="chart-loading loading-dot dot-elastic align-middle align-self-center"></div>
+        </div>
     </is:modal>
     </script>
 
@@ -112,7 +111,7 @@
            ng-repeat="menuElement in menus | visibleMenuElement: getItem(): viewType"
            href="{{ menuElement.url(getItem()) | orElse: '' }}"
            ng-click="menuClick(menuElement, getItem(), $event)">
-            <span class="name">{{:: menuElement | menuElementName }}</span>
+            <span class="name">{{:: menuElement | menuElementName:getItem() }}</span>
         </a>
     </div>
     </script>

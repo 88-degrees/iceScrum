@@ -91,8 +91,11 @@ services.service("StoryService", ['$timeout', '$q', '$http', '$rootScope', '$sta
         }).$promise;
         return obj.stories.length == 0 ? promise : $q.when(obj.stories);
     };
-    this.filter = function(filter, project) {
-        var existingStories = self.filterStories(project.stories, filter);
+    this.filter = function(filter, project, useCache) { //maybe a temporary fix
+        var existingStories = [];
+        if (angular.isUndefined(useCache) || useCache !== false) {
+            existingStories = self.filterStories(project.stories, filter);
+        }
         var promise = Story.query({projectId: project.id, filter: {story: filter}}, function(stories) {
             self.mergeStories(stories);
             _.each(stories, function(story) {
@@ -123,11 +126,6 @@ services.service("StoryService", ['$timeout', '$q', '$http', '$rootScope', '$sta
         }
         return Story.update({projectId: story.backlog.id, id: story.id, action: 'plan'}, params, crudMethods[IceScrumEventType.UPDATE]).$promise;
     };
-    this.planMultiple = function(ids, sprint, projectId) {
-        return Story.updateArray({projectId: projectId, id: ids, action: 'planMultiple'}, {parentSprint: {id: sprint.id}}, function(stories) {
-            _.each(stories, crudMethods[IceScrumEventType.UPDATE]);
-        }).$promise;
-    };
     this.unPlan = function(story) {
         return Story.update({projectId: story.backlog.id, id: story.id, action: 'unPlan'}, {}, crudMethods[IceScrumEventType.UPDATE]).$promise;
     };
@@ -151,6 +149,9 @@ services.service("StoryService", ['$timeout', '$q', '$http', '$rootScope', '$sta
     };
     this.copy = function(story) {
         return Story.update({projectId: story.backlog.id, id: story.id, action: 'copy'}, {}, crudMethods[IceScrumEventType.CREATE]).$promise;
+    };
+    this.shiftRankInList = function(story, ids, index) {
+        return Story.update({projectId: story.backlog.id, id: story.id, action: 'shiftRankInList'}, {ids: ids.join(','), index: index}, crudMethods[IceScrumEventType.UPDATE]).$promise;
     };
     this.getMultiple = function(ids, projectId) {
         ids = _.map(ids, function(id) {
@@ -211,6 +212,11 @@ services.service("StoryService", ['$timeout', '$q', '$http', '$rootScope', '$sta
             _.each(stories, crudMethods[IceScrumEventType.UPDATE]);
         }).$promise;
     };
+    this.planMultiple = function(ids, sprint, projectId) {
+        return Story.updateArray({projectId: projectId, id: ids, action: 'plan'}, {parentSprint: {id: sprint.id}}, function(stories) {
+            _.each(stories, crudMethods[IceScrumEventType.UPDATE]);
+        }).$promise;
+    };
     this.updateStateMultiple = function(ids, projectId, action) {
         return Story.updateArray({projectId: projectId, id: ids, action: action}, {}, function(stories) {
             _.each(stories, crudMethods[IceScrumEventType.UPDATE]);
@@ -218,11 +224,6 @@ services.service("StoryService", ['$timeout', '$q', '$http', '$rootScope', '$sta
     };
     this.rankMultiple = function(ids, rank, projectId) {
         return Story.updateArray({projectId: projectId, id: ids, rank: rank, action: 'rank'}, {}, function(stories) {
-            _.each(stories, crudMethods[IceScrumEventType.UPDATE]);
-        }).$promise;
-    };
-    this.shiftRankInList = function(ids, story, index) {
-        return Story.updateArray({projectId: story.backlog.id, id: ids, action: 'shiftRankInList'}, {story: {id: story.id}, index: index}, function(stories) {
             _.each(stories, crudMethods[IceScrumEventType.UPDATE]);
         }).$promise;
     };

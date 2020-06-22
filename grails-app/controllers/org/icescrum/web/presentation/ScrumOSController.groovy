@@ -39,6 +39,7 @@ import org.icescrum.core.error.ControllerErrorHandler
 import org.icescrum.core.support.ApplicationSupport
 import org.icescrum.core.ui.WindowDefinition
 import org.icescrum.core.utils.ServicesUtils
+import org.icescrum.web.OpenAPIUrlMappingsRenderer
 import org.springframework.web.servlet.support.RequestContextUtils as RCU
 import sun.misc.BASE64Decoder
 
@@ -55,6 +56,7 @@ class ScrumOSController implements ControllerErrorHandler {
     def springSecurityService
     def atmosphereMeteor
     def userAgentIdentService
+    def grailsUrlMappingsHolder
 
     def index() {
         User user = (User) springSecurityService.currentUser
@@ -317,6 +319,33 @@ class ScrumOSController implements ControllerErrorHandler {
     @Secured(['permitAll()'])
     def listModal() {
         render(status: 200, template: "dialogs/list")
+    }
+
+    @Secured(["hasRole('ROLE_ADMIN')"])
+    def swagger() {
+        withCacheHeaders {
+            delegate.lastModified {
+                new Date(1575371594)
+            }
+            generate {
+                cache shared: true, validFor: 3600  // 1hr on content
+                render(status: 200, view: "api")
+            }
+        }
+    }
+
+    @Secured(["hasRole('ROLE_ADMIN')"])
+    def openAPI() {
+        withCacheHeaders {
+            delegate.lastModified {
+                new Date(1575371594)
+            }
+            generate {
+                cache shared: true, validFor: 3600  // 1hr on content
+                def mappings = (new OpenAPIUrlMappingsRenderer()).getOpenApi(grailsUrlMappingsHolder.urlMappings as List)
+                render(status: 200, contentType: 'application/json', text: mappings as JSON)
+            }
+        }
     }
 
     @Secured(['isAuthenticated()'])

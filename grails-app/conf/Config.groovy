@@ -184,6 +184,7 @@ icescrum {
 
     securitydebug.enable = false
     pushdebug.enable = false
+    profiling.enable = false
     log.dir = null // Fix ilog dir due to lazy object initialization - init object
 
     marshaller = [
@@ -484,6 +485,9 @@ log4j = {
     def config = Holders.config
     def logLayoutPattern = new PatternLayout("%d [%t] %-5p %c %x - %m%n")
 
+//    trace 'org.hibernate.type.descriptor.sql' // Uncomment to trace SQL variables bindings
+//    debug 'org.hibernate.SQL'                 // Uncomment to trace SQL queries (or use logSql/formatSql in DataSource.groovy)
+
     error 'org.codehaus.groovy.grails.plugins',
             'org.grails.plugin',
             'grails.app'
@@ -694,8 +698,44 @@ environments {
         println "(*) grails.config.locations = ${grails.config.locations}"
         println "--------------------------------------------------------"
     }
+    test {
+        icescrum.beta.enable = true
+        icescrum.profiling.enable = true
+        grails.mail.overrideAddress = "testing@kagilum.com"
+        def systemConfig = System.getProperty(ApplicationSupport.CONFIG_ENV_NAME)
+        def envConfig = System.getenv(ApplicationSupport.CONFIG_ENV_NAME)
+        def homeConfig = "${userHome}${File.separator}.icescrum${File.separator}config.groovy"
+        println "--------------------------------------------------------"
+        if (systemConfig && new File(systemConfig).exists()) {  // 1. System variable passed to the JVM : -Dicescrum.config.file=.../config.groovy
+            println "Use configuration file provided a JVM system variable: " + systemConfig
+            grails.config.locations = ["file:" + systemConfig]
+        } else if (envConfig && new File(envConfig).exists()) { // 2. Environment variable icescrum.config.file=.../config.groovy
+            println("Use configuration file provided by an environment variable: " + envConfig)
+            grails.config.locations = ["file:" + envConfig]
+        } else if (new File(homeConfig).exists()) {             // 3. Default location home/.icescrum/config.groovy
+            println "Use configuration file from the iceScrum home: " + homeConfig
+            grails.config.locations = ["file:" + homeConfig]
+        } else {
+            println "No configuration file found"
+            grails.config.locations = []
+        }
+        try {
+            String extConfFile = (String) new InitialContext().lookup('java:comp/env/' + ApplicationSupport.CONFIG_ENV_NAME)
+            if (extConfFile) {
+                grails.config.locations << extConfFile
+                println "Use configuration file provided by JNDI: ${extConfFile}"
+            }
+        } catch (Exception e) {}
+        println "(*) grails.config.locations = ${grails.config.locations}"
+        println "--------------------------------------------------------"
+    }
     development {
         icescrum.beta.enable = true
+        icescrum.profiling.enable = true
+        grails.mail.overrideAddress = "testing@kagilum.com"
+        grails.plugins.hibernateMetrics.enabled = true
+        grails.plugins.hibernateMetrics.logSqlToConsole = false
+        grails.plugin.springsecurity.controllerAnnotations.staticRules['/hibernateMetrics/**'] = ['permitAll']
     }
 }
 
@@ -714,6 +754,13 @@ grails {
         config = {
             provider {
                 name uniqueCacheManagerName // unique name when configuring caches
+            }
+            sizeOfPolicy {
+                maxDepth 100
+                maxDepthExceededBehavior 'abort'
+            }
+            defaultCache {
+                maxElementsInMemory 10000
             }
         }
     }

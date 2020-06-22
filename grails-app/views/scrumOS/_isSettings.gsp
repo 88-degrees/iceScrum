@@ -70,6 +70,7 @@
         warning: ${ApplicationSupport.getLastWarning() as JSON},
         workerSrc: "${asset.assetPath(src:"vendors/vanilla/pdfjs/pdf.worker.js")}",
         enableEmojis: ${ApplicationSupport.isUTF8Database()},
+        enableProfiler: ${params.profiler ? grailsApplication.config.icescrum.profiling.enable : false},
         announcement: ${announcement as JSON},
         isMobile: ${isMobile},
         loginLink: "${createLink(controller: 'login', action: 'auth')}",
@@ -82,10 +83,11 @@
             providers: [<entry:point id="scrumOS-isSettings-attachment" model="[user:user, roles:roles, workspace: workspace]" join=","/>]
         },
         clientsOauth: {
-            <g:each in="${grailsApplication.config.icescrum.clientsOauth}" var="clientOauth">
-            ${clientOauth.key}: ${clientOauth.value.findAll{ it.key != 'clientSecret' } as JSON},
-            </g:each>
-        },
+    <g:each in="${grailsApplication.config.icescrum.clientsOauth}" var="clientOauth">
+    ${clientOauth.key}: ${clientOauth.value.findAll{ it.key != 'clientSecret' } as JSON},
+    </g:each>
+    },
     <entry:point id="scrumOS-isSettings" model="[user:user, roles:roles, workspace: workspace]" join=","/>
-    };
+    }
+    ;
 </script>

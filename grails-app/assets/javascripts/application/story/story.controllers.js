@@ -343,7 +343,9 @@ extensibleController('storyCtrl', ['$scope', '$controller', '$uibModal', '$filte
                     };
                     $scope.setEffort = function(effort) {
                         $scope.editableStory.effort = effort;
-                        $scope.sliderEffort.labelValue = $scope.effortSuiteValues.indexOf(effort);
+                        if (!$scope.isEffortCustom()) {
+                            $scope.sliderEffort.labelValue = $scope.effortSuiteValues.indexOf(effort);
+                        }
                         $scope.updateTable();
                     };
                     $scope.submit = function(story) {
@@ -731,8 +733,11 @@ extensibleController('storyMultipleCtrl', ['$scope', '$controller', '$filter', '
         });
     };
     $scope.copyMultiple = function() {
+        $rootScope.uiWorking('todo.is.ui.story.multiple.being.copied', true);
         StoryService.copyMultiple(storyListId, project.id).then(function() {
             $scope.notifySuccess('todo.is.ui.story.multiple.copied');
+        }).finally(function() {
+            $rootScope.uiReady(true);
         });
     };
     $scope.updateMultiple = function(updatedFields) {
@@ -892,7 +897,7 @@ controllers.controller('featureStoriesCtrl', ['$controller', '$scope', '$filter'
             var story = event.source.itemScope.modelValue;
             var newIndex = event.dest.index;
             var stories = event.dest.sortableScope.modelValue;
-            StoryService.shiftRankInList(_.map(stories, 'id'), story, newIndex).catch(function() {
+            StoryService.shiftRankInList(story, _.map(stories, 'id'), newIndex).catch(function() {
                 $scope.revertSortable(event);
             });
         },

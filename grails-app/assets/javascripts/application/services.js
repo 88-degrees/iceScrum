@@ -74,8 +74,10 @@ services.service('Session', ['$timeout', '$http', '$rootScope', '$injector', 'Us
         if (self.listeners.activity) {
             self.listeners.activity.unregister();
         }
-        self.listeners.activity = PushService.registerListener('activity', IceScrumEventType.CREATE, function() {
-            self.unreadActivitiesCount += 1;
+        self.listeners.activity = PushService.registerListener('activity', IceScrumEventType.CREATE, function(activity) {
+            if (activity.poster && self.user && activity.poster.id !== self.user.id) {
+                self.unreadActivitiesCount += 1;
+            }
         });
         if (self.listeners.user) {
             self.listeners.user.unregister();
@@ -274,6 +276,9 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
             paramObj.headers = {};
         }
         paramObj.headers['x-icescrum-client'] = 'webclient';
+        if (isSettings.enableProfiler) {
+            paramObj.headers['x-icescrum-profiler'] = 'true';
+        }
         return $http.get(fullPath, paramObj).then(function(response) {
             return response.data;
         });
@@ -285,6 +290,9 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
             paramObj.headers = {};
         }
         paramObj.headers['x-icescrum-client'] = 'webclient';
+        if (isSettings.enableProfiler) {
+            paramObj.headers['x-icescrum-profiler'] = 'true';
+        }
         return $http.delete(fullPath, paramObj).then(function(response) {
             return response.data;
         });
@@ -292,7 +300,7 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
     this.httpPost = function(path, data, isAbsolute, params) {
         var fullPath = isAbsolute ? $rootScope.serverUrl + '/' + path : path;
         var paramObj = params || {
-            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'x-icescrum-client': 'webclient'},
+            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
             transformRequest: function(data) {
                 return self.formObjectData(data, '');
             }
@@ -301,6 +309,9 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
             paramObj.headers = {};
         }
         paramObj.headers['x-icescrum-client'] = 'webclient';
+        if (isSettings.enableProfiler) {
+            paramObj.headers['x-icescrum-profiler'] = 'true';
+        }
         return $http.post(fullPath, data, paramObj).then(function(response) {
             return response.data;
         });
@@ -327,7 +338,7 @@ services.service('FormService', ['$filter', '$http', '$rootScope', '$timeout', '
                         dontSaveChangesCallback();
                     },
                     cancelChangesCallback: function() {
-                        $scope.uiReady();
+                        $scope.uiReady(true);
                         $scope.mustConfirmStateChange = true;
                     }
                 });
@@ -464,7 +475,7 @@ services.service('CacheService', ['$injector', function($injector) {
         }
         if (!isAllowed) {
             self.remove(cacheName, itemFromServer.id);
-        } else if (!oldItem) {
+        } else if (!oldItem && newItem && !newItem.messageId) {
             self.getCache(cacheName).push(newItem);
         }
         return newItem;
@@ -783,37 +794,46 @@ restResource.factory('Resource', ['$resource', '$rootScope', '$q', 'FormService'
             this.then = null;
             resolve(this);
         };
+        var defaultHeaders = {'x-icescrum-client': 'webclient'};
+        if (isSettings.enableProfiler) {
+            defaultHeaders['x-icescrum-profiler'] = 'true';
+        }
+        var defaultPostHeaders = _.assign({}, defaultHeaders, {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'});
         var defaultMethods = {
             save: {
                 method: 'post',
                 isArray: false,
-                headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'x-icescrum-client': 'webclient'},
+                headers: _.clone(defaultPostHeaders),
                 transformRequest: transformRequest,
                 interceptor: getInterceptor(false)
             },
             saveArray: {
                 method: 'post',
                 isArray: true,
-                headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'x-icescrum-client': 'webclient'},
+                headers: _.clone(defaultPostHeaders),
                 transformRequest: transformRequest,
                 interceptor: getInterceptor(true)
             },
             get: {
                 method: 'get',
                 interceptor: getInterceptor(false),
-                headers: {'x-icescrum-client': 'webclient'},
+                headers: _.clone(defaultHeaders),
                 then: transformQueryParams
             },
             query: {
                 method: 'get',
                 isArray: true,
-                headers: {'x-icescrum-client': 'webclient'},
+                headers: _.clone(defaultHeaders),
                 interceptor: getInterceptor(true),
                 then: transformQueryParams
             },
+            delete: {
+                method: 'delete',
+                headers: _.clone(defaultHeaders)
+            },
             deleteArray: {
                 method: 'delete',
-                headers: {'x-icescrum-client': 'webclient'},
+                headers: _.clone(defaultHeaders),
                 isArray: true
             }
         };
@@ -825,9 +845,7 @@ restResource.factory('Resource', ['$resource', '$rootScope', '$q', 'FormService'
         _.each(methods, function(method) {
             method.transformRequest = transformRequest;
             method.then = transformQueryParams;
-            if (method.method == 'post') {
-                method.headers = {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'};
-            }
+            method.headers = method.method.toLowerCase() === 'post' ? _.clone(defaultPostHeaders) : _.clone(defaultHeaders);
             if (method.url && method.url.indexOf('/') == 0) {
                 method.url = isSettings.serverUrl + method.url;
             }

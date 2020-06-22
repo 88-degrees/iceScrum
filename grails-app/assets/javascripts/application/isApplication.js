@@ -536,10 +536,11 @@ var isApplication = angular.module('isApplication', [
             }
         };
     }])
-    .factory('SubmittingInterceptor', ['$rootScope', '$q', function($rootScope, $q) {
+    .factory('SubmittingInterceptor', ['$rootScope', '$q', '$timeout', function($rootScope, $q, $timeout) {
         var isSubmitting = function(config) {
             return _.includes(['POST', 'DELETE'], config.method) && !config.isBackground;
         };
+        var metricProfiler = null;
         return {
             request: function(config) {
                 if (isSubmitting(config)) {
@@ -551,10 +552,27 @@ var isApplication = angular.module('isApplication', [
                 if (isSubmitting(response.config)) {
                     $rootScope.application.submitting = false;
                 }
+                if (isSettings.enableProfiler && !response.config.url.endsWith('.html') && typeof getMetrics === 'function') {
+                    if (metricProfiler) {
+                        $timeout.cancel(metricProfiler);
+                    }
+                    metricProfiler = $timeout(function() {
+                        getMetrics(1);
+                    }, 200);
+                }
                 return response; // Required to mimic default interceptor
             },
             responseError: function(response) {
                 $rootScope.application.submitting = false; // In case of any error, always give back the control to the user
+                if (isSettings.enableProfiler && !response.config.url.endsWith('.html') && typeof getMetrics === 'function') {
+                    if (metricProfiler) {
+                        $timeout.cancel(metricProfiler);
+                    }
+                    metricProfiler = $timeout(function() {
+                        clearStats();
+                        getMetrics(1);
+                    }, 200);
+                }
                 return $q.reject(response); // Required to mimic default interceptor
             }
         };
@@ -563,22 +581,31 @@ var isApplication = angular.module('isApplication', [
         return jstz.determine();
     })
     .run(['Session', 'I18nService', 'PushService', 'UserService', 'WidgetService', 'AppService', 'FormService', 'WorkspaceType', '$controller', '$rootScope', '$timeout', '$state', '$uibModal', '$filter', '$document', '$window', '$localStorage', '$interval', 'notifications', 'screenSize', 'hotkeys', function(Session, I18nService, PushService, UserService, WidgetService, AppService, FormService, WorkspaceType, $controller, $rootScope, $timeout, $state, $uibModal, $filter, $document, $window, $localStorage, $interval, notifications, screenSize, hotkeys) {
-        $rootScope.uiWorking = function(message) {
-            $rootScope.loaders.menu.play();
-            $rootScope.loaders.menu.loop = true;
-            $rootScope.application.loading = true;
-            $rootScope.application.loadingText = $rootScope.message((message === true || message === undefined) ? 'todo.is.ui.loading.working' : message);
-            if ($rootScope.application.loadingText) {
-                $rootScope.loaders.main.play();
-                $rootScope.loaders.main.loop = true;
+        //when an ui has requested the uiWorking only ui can stop it...
+        $rootScope.uiWorking = function(message, fromUi) {
+            if (!$rootScope.application.uiAction || ($rootScope.application.uiAction && fromUi)) {
+                $rootScope.loaders.menu.play();
+                $rootScope.loaders.menu.loop = true;
+                $rootScope.application.loading = true;
+                $rootScope.application.uiAction = fromUi === true;
+                $rootScope.application.loadingText = $rootScope.message((message === true || message === undefined) ? 'todo.is.ui.loading.working' : message);
+                if ($rootScope.application.loadingText) {
+                    $rootScope.loaders.main.play();
+                    $rootScope.loaders.main.loop = true;
+                }
             }
         };
         $rootScope.uiReadyTimeout = null;
-        $rootScope.uiReady = function() {
-            $rootScope.loaders.menu.loop = false;
-            $rootScope.loaders.main.loop = false;
-            $rootScope.application.loading = false;
-            $rootScope.application.loadingText = null;
+        $rootScope.uiReady = function(fromUi) {
+            if (!$rootScope.application.uiAction || ($rootScope.application.uiAction && fromUi)) {
+                $rootScope.loaders.menu.loop = false;
+                $rootScope.loaders.main.loop = false;
+                $rootScope.application.loading = false;
+                $rootScope.application.loadingText = null;
+                $timeout(function() {
+                    angular.element($window).triggerHandler('resize'); // For timeline in planning
+                });
+            }
         };
         $rootScope.hotkeyClick = function(event, hotkey) {
             if (hotkey.el && (hotkey.el.is("a") || hotkey.el.is("button"))) {
@@ -805,7 +832,7 @@ var isApplication = angular.module('isApplication', [
         };
         $rootScope.showAppsModal = function(appDefinitionId, isTerm) {
             var scope = $rootScope.$new();
-            if (appDefinitionId) {
+            if (appDefinitionId && (typeof (appDefinitionId) === 'string' || appDefinitionId instanceof String)) {
                 if (isTerm) {
                     scope.defaultSearchTerm = appDefinitionId;
                 } else {

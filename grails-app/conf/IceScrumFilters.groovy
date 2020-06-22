@@ -27,6 +27,7 @@ import org.geeks.browserdetection.ComparisonType
 import org.icescrum.core.domain.User
 import org.icescrum.core.domain.security.Authority
 import org.icescrum.core.support.ApplicationSupport
+import org.icescrum.core.support.ProfilingSupport
 import org.springframework.web.servlet.support.RequestContextUtils
 
 class IceScrumFilters {
@@ -44,9 +45,16 @@ class IceScrumFilters {
                 if (userAgentIdentService.isMsie(ComparisonType.LOWER, "12") && request.getHeader('X-Requested-With')?.equals('XMLHttpRequest')) {
                     response.setHeader('Expires', '-1')
                 }
+                if (grailsApplication.config.icescrum.profiling.enable && (params.profiler || request.getHeader('x-icescrum-profiler'))) {
+                    def ajax = request.getHeader('x-icescrum-profiler') ? true : false
+                    ProfilingSupport.enableProfiling(ajax, controllerName, actionName)
+                }
             }
             after = {
                 pushService.resumePushForThisThread()
+                if (grailsApplication.config.icescrum.profiling.enable) {
+                    ProfilingSupport.reportProfiling()
+                }
             }
         }
 

@@ -1410,6 +1410,7 @@ th {
           .story-active {
             color: $is-text-color-alt;
             font-family: $is-font-family-bold;
+            background-color: $is-blue;
           }
 
           .story-state {
@@ -1618,4 +1619,16 @@ th {
   height: 26px;
   align-self: center;
   margin-left: 0.5rem !important;
+}
+
+.sticky-notes .loading-dot {
+  margin-left: calc(50% - (7px / 2));
+  margin-top: 5rem;
+  margin-bottom: 5rem;
+}
+
+.chart-loading.loading-dot {
+  margin-left: calc(50% - (7px / 2));
+  margin-top: 5rem;
+  margin-bottom: 5rem;
 }

@@ -40,6 +40,14 @@ class UrlMappings {
         "/$action" {
             controller = 'scrumOS'
         }
+        "/api" {
+            controller = 'scrumOS'
+            action = 'swagger'
+        }
+        name openAPI: "/openapi.json" {
+            controller = 'scrumOS'
+            action = 'openAPI'
+        }
         "/robots.txt" {
             controller = 'scrumOS'
             action = 'robots'
@@ -220,14 +228,14 @@ class UrlMappings {
         //User Token
         "/user/$userId/token" {
             controller = 'userToken'
-            action = [POST: "save"]
+            action = [GET: 'index', POST: 'save']
             constraints {
                 userId(matches: /\d*/)
             }
         }
         "/user/$userId/token/$id" {
             controller = 'userToken'
-            action = [POST: "update", DELETE: "delete"]
+            action = [DELETE: 'delete']
             constraints {
                 userId(matches: /\d*/)
                 id(matches: /[0-9a-z]*/)

@@ -198,7 +198,7 @@ class StoryController implements ControllerErrorHandler {
                 def sprintId = storyParams.parentSprint == 'null' ? storyParams.parentSprint : storyParams.parentSprint?.id?.toLong()
                 if (sprintId instanceof Long && story.parentSprint?.id != sprintId) {
                     def sprint = Sprint.withSprint(project, sprintId)
-                    storyService.plan(sprint, story)
+                    storyService.plan(story, sprint)
                 } else if (sprintId == "null") {
                     storyService.unPlan(story)
                 }
@@ -281,38 +281,27 @@ class StoryController implements ControllerErrorHandler {
     }
 
     @Secured(['(productOwner() or scrumMaster()) and !archivedProject()'])
-    def plan(long id, long project) {
-        // Separate method to manage changing the rank and the state at the same time (too complicated to manage them properly in the update method)
-        def story = Story.withStory(project, id)
-        def storyParams = params.story
+    def plan(long project) {
+        def stories = Story.withStories(params)
+        def uniquePlan = stories.size() == 1 && params.story // Check also if params.story to make planMultiple work with a single story
+        def storyParams = uniquePlan ? params.story : params
         def sprintId = storyParams.'parentSprint.id'?.toLong() ?: storyParams.parentSprint?.id?.toLong()
         def sprint = Sprint.withSprint(project, sprintId)
-        if (!sprint) {
-            returnError(code: 'is.sprint.error.not.exist')
-            return
-        }
         def rank
         if (storyParams?.rank) {
             rank = storyParams.rank instanceof Number ? storyParams.rank : storyParams.rank.toInteger()
         }
-        storyService.plan(sprint, story, rank)
-        render(status: 200, contentType: 'application/json', text: story as JSON)
-    }
-
-    @Secured(['isAuthenticated() && (stakeHolder() or inProject()) and !archivedProject()'])
-    def planMultiple(long project) {
-        def stories = Story.withStories(params)
-        def sprintId = params.'parentSprint.id'?.toLong() ?: params.parentSprint?.id?.toLong()
-        def sprint = Sprint.withSprint(project, sprintId)
-        storyService.planMultiple(sprint, stories)
-        render(status: 200, contentType: 'application/json', text: stories as JSON)
+        storyService.plan(stories, sprint, rank)
+        def returnData = uniquePlan ? stories.first() : stories
+        render(status: 200, contentType: 'application/json', text: returnData as JSON)
     }
 
     @Secured(['(productOwner() or scrumMaster()) and !archivedProject()'])
-    def unPlan(long id, long project) {
-        def story = Story.withStory(project, id)
-        storyService.unPlan(story)
-        render(status: 200, contentType: 'application/json', text: story as JSON)
+    def unPlan() {
+        def stories = Story.withStories(params)
+        storyService.unPlan(stories)
+        def returnData = stories.size() > 1 ? stories : stories.first()
+        render(status: 200, contentType: 'application/json', text: returnData as JSON)
     }
 
     @Secured(['(productOwner() or scrumMaster()) and !archivedProject()'])
@@ -323,7 +312,7 @@ class StoryController implements ControllerErrorHandler {
             returnError(code: 'is.sprint.error.not.exist')
             return
         }
-        storyService.plan(nextSprint, story, 1)
+        storyService.plan(story, nextSprint, 1)
         render(status: 200, contentType: 'application/json', text: story as JSON)
     }
 
@@ -334,11 +323,7 @@ class StoryController implements ControllerErrorHandler {
         if (stories.size() == 1 && params.story?.rank) {
             rank = params.story.rank instanceof Number ? params.story.rank : params.story.rank.toInteger()
         }
-        Story.withTransaction {
-            stories.sort { it.rank }.each { Story story ->
-                storyService.acceptToBacklog(story, rank)
-            }
-        }
+        storyService.acceptToBacklog(stories, rank)
         def returnData = stories.size() > 1 ? stories : stories.first()
         render(status: 200, contentType: 'application/json', text: returnData as JSON)
     }
@@ -349,11 +334,11 @@ class StoryController implements ControllerErrorHandler {
         def rank = params.rank instanceof Number ? params.rank : params.rank.toInteger()
         def (beforeRank, afterRank) = stories.split { it.rank <= rank }
         Story.withTransaction {
-            afterRank.reverse().each { Story story ->
-                storyService.update(story, [rank: rank])
+            beforeRank.reverse().eachWithIndex { Story story, def index ->
+                storyService.update(story, [rank: rank - index])
             }
-            beforeRank.each { Story story ->
-                storyService.update(story, [rank: afterRank.size() ? rank - 1 : rank])
+            afterRank.eachWithIndex { Story story, def index ->
+                storyService.update(story, [rank: rank + index + beforeRank.size()])
             }
         }
         def returnData = stories.size() > 1 ? stories : stories.first()
@@ -361,15 +346,11 @@ class StoryController implements ControllerErrorHandler {
     }
 
     @Secured(['productOwner() and !archivedProject()'])
-    def shiftRankInList() {
-        List<Story> stories = Story.withStories(params).sort { it.rank }
-        Story story = stories.find { it.id == params.story.id.toLong() }
-        Integer index = params.index.toInteger()
-        Story.withTransaction {
-            storyService.shiftRankInList(stories, story, index)
-        }
-        def returnData = stories.size() > 1 ? stories : stories.first()
-        render(status: 200, contentType: 'application/json', text: returnData as JSON)
+    def shiftRankInList(long id, int index) {
+        List<Story> stories = Story.withStories(params, 'ids')
+        Story story = stories.find { it.id == id }
+        storyService.shiftRankInList(story, stories, index)
+        render(status: 200, contentType: 'application/json', text: story as JSON)
     }
 
     @Secured(['productOwner() and !archivedProject()'])
@@ -379,11 +360,7 @@ class StoryController implements ControllerErrorHandler {
         if (stories.size() == 1 && params.story?.rank) {
             rank = params.story.rank instanceof Number ? params.story.rank : params.story.rank.toInteger()
         }
-        Story.withTransaction {
-            stories.sort { -it.rank }.each { Story story ->
-                storyService.returnToSandbox(story, rank)
-            }
-        }
+        storyService.returnToSandbox(stories, rank)
         def returnData = stories.size() > 1 ? stories : stories.first()
         render(status: 200, contentType: 'application/json', text: returnData as JSON)
     }
@@ -490,7 +467,8 @@ class StoryController implements ControllerErrorHandler {
         def groupedStories = [:]
         if (field == "effort") {
             groupedStories = projectStories.groupBy {
-                it.effort != null ? new BigDecimal(it.effort) : null // Hack: Normalize scale because BigDecimal 'equals' compares by value AND scale. Just after updating an effort it may have 0 digit while others have 2 digits -> 2 entries, one for 3 and one for 3.00
+                it.effort != null ? new BigDecimal(it.effort) : null
+                // Hack: Normalize scale because BigDecimal 'equals' compares by value AND scale. Just after updating an effort it may have 0 digit while others have 2 digits -> 2 entries, one for 3 and one for 3.00
             }
         } else if (field == "value") {
             groupedStories = projectStories.groupBy { it.value }
